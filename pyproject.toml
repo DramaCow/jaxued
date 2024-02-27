@@ -31,6 +31,9 @@ dependencies = [
     "optax",
     "orbax",
     "wandb",
+    "pillow",
+    "imageio",
+    "moviepy"
 ]
 
 [project.urls]

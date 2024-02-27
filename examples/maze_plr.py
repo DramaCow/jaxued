@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Sequence
+from typing import Sequence, Tuple
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -790,7 +790,6 @@ def main(config=None, project="JAXUED_TEST"):
             checkpoint_manager = ocp.CheckpointManager(os.path.join(os.getcwd(), checkpoint_directory, 'models'), item_handlers=ocp.StandardCheckpointHandler())
 
             train_state_og: TrainState = create_train_state(rng_init)
-            all_states = []
             step = checkpoint_manager.latest_step() if og_config['checkpoint_to_eval'] == -1 else og_config['checkpoint_to_eval']
 
             loaded_checkpoint = checkpoint_manager.restore(step)
@@ -895,8 +894,6 @@ if __name__=="__main__":
     if config["num_env_steps"] is not None:
         config["num_updates"] = config["num_env_steps"] // (config["num_train_envs"] * config["num_steps"])
     config["group_name"] = ''.join([str(config[key]) for key in sorted([a.dest for a in parser._action_groups[2]._group_actions])])
-    if config['mode'] == 'eval':
-        os.environ['WANDB_MODE'] = 'disabled'
     
     if config['mode'] == 'eval':
         os.environ['WANDB_MODE'] = 'disabled'

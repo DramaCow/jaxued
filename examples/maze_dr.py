@@ -653,9 +653,7 @@ if __name__=="__main__":
     if config["num_env_steps"] is not None:
         config["num_updates"] = config["num_env_steps"] // (config["num_train_envs"] * config["num_steps"])
     config["group_name"] = ''.join([str(config[key]) for key in sorted([a.dest for a in parser._action_groups[2]._group_actions])])
-    if config['mode'] == 'eval':
-        os.environ['WANDB_MODE'] = 'disabled'
-    
+
     if config['mode'] == 'eval':
         os.environ['WANDB_MODE'] = 'disabled'
     

@@ -32,12 +32,12 @@ We also have understandable single-file implementations of DR, PLR, ACCEL and PA
 JaxUED is primarily intended for researchers looking to get *in the weeds* of UED algorithm development. Our minimal dependency implementations of the current state-of-the art UED methods expose all implementation details; helping researchers understand how the algorithms work in practise, and facilitating easy, rapid prototyping of new ideas. 
 
 ## Get Started
-See the [docs](TODO) for more examples and [explanations of arguments](TODO), or simply read the documented code in `examples/`
+See the [docs](https://dramacow.github.io/jaxued/) for more examples and [explanations of arguments](https://dramacow.github.io/jaxued/maze_dr/), or simply read the documented code in `examples/`
 ### Installation
 First, clone the repository
 
 ```
-git clone ...
+git clone https://github.com/DramaCow/jaxued
 cd jaxued
 ```
 And install:
@@ -53,7 +53,7 @@ pip install --upgrade "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-re
 ### Training
 We provide three example files, `examples/maze_{dr,plr,paired}.py` implementing DR, PLR (and ACCEL) & PAIRED, respectively.
 
-To run them, simply run the scripts directly. See the documentation (TODO Link) or the files themselves for arguments
+To run them, simply run the scripts directly. See the [documentation](https://dramacow.github.io/jaxued/) or the files themselves for arguments.
 
 ```bash
 python examples/maze_plr.py
