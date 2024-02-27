@@ -1,6 +1,6 @@
 # Welcome to JaxUED!
 <p align="center">
-<a href="#get-started">Get Started</a> &mdash; <a href="TODO">Paper</a> &mdash; <a href="https://dramacow.github.io/jaxued">Docs</a>
+<a href="#get-started">Get Started</a> &mdash; <a href="TODO">Paper</a> &mdash; <a href="https://dramacow.github.io/jaxued/">Docs</a>
 </p>
 
 <div align="center">
