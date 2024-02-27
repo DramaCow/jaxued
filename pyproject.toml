@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jaxued"
+version = "0.0.1"
+authors = [
+  { name="Samuel Coward", email="scoward@robots.ox.ac.uk" },
+]
+description = "A simple and useable UED library in Jax"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+]
+keywords = ["machine-learning", "reinforcement-learning", "UED", "JAX"]
+maintainers = [
+    { name = "Samuel Coward", email = "scoward@robots.ox.ac.uk" }
+]
+dependencies = [
+    "numpy",
+    "jax",
+    "flax",
+    "chex",
+    "gymnax",
+    "distrax",
+    "optax",
+    "orbax",
+    "wandb",
+]
+
+[project.urls]
+Homepage = "https://github.com/dramacow/jaxued"
+Issues = "https://github.com/dramacow/jaxued/issues"
+
+
+
+license-file = "LICENSE"
