@@ -6,7 +6,7 @@ See the DR example for details about what this outputs, and how to run it.
 
 Argument Name  | Description | Default
 -------------                   | ------------- | -------------
-`--project`                     | Wandb project                                                                                                                              | todo
+`--project`                     | Wandb project                                                                                                                              | JAXUED_TEST
 `--run_name`                    | This controls where the checkpoints are stored                                                                                                                                | None
 `--seed`                        | Random seed                                                                                                                                | 0
 `--mode`                        | "train" or "eval"                                                                                                                          | train

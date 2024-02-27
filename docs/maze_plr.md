@@ -17,8 +17,8 @@ Name  | Description | Default
 `--buffer_duplicate_check`      | If True, duplicate levels cannot be added to the buffer.                                                                                   | True
 `--use_accel`                   | If True, runs ACCEL.                                                                                                                       | False
 `--num_edits`                   | Only if `--use_accel=True`, the number of mutations done.                                                                                  | 5
-`--project`                     | Wandb project                                                                                                                              | todo
-`--run_name`                    | TODO ignore                                                                                                                                | todo
+`--project`                     | Wandb project                                                                                                                              | JAXUED_TEST
+`--run_name`                    | The group name to use                                                                                                                      | None
 `--seed`                        | Random seed                                                                                                                                | 0
 `--mode`                        | "train" or "eval"                                                                                                                          | train
 `--checkpoint_directory`        | Only valid if mode==eval where to load checkpoint from                                                                                     | None
