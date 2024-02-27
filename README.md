@@ -78,7 +78,7 @@ states, cum_rewards, episode_lengths, levels
 |-------------------------------------------------------------------------------------|--------------------------------------------------------------|
 | [Domain Randomization (DR)](https://arxiv.org/abs/1703.06907)                       | `python examples/maze_dr.py`                             |
 | [Prioritized Level Replay (PLR)](https://arxiv.org/abs/2010.03934)                  | `python examples/maze_plr.py --exploratory_grad_updates` |
-| [Robust Prioritized Level Replay (PLR$^{\perp}$)](https://arxiv.org/abs/2110.02439) | `python examples/maze_plr.py`                            |
+| [Robust Prioritized Level Replay (RPLR)](https://arxiv.org/abs/2110.02439) | `python examples/maze_plr.py`                            |
 | [ACCEL](https://arxiv.org/abs/2203.01302)                                           | `python examples/maze_plr.py --use_accel`                |
 | [PAIRED](https://arxiv.org/abs/2012.02096)                                          | `python examples/maze_paired.py`                         |
 
@@ -108,6 +108,7 @@ RL Algorithms in Jax
 - [PureJaxRL](https://github.com/luchris429/purejaxrl) End-to-end RL implementations in Jax
 - [JaxIRL](https://github.com/FLAIROx/jaxirl): Inverse RL
 - [Mava](https://github.com/instadeepai/Mava): Multi-Agent RL
+- [JaxMARL](https://github.com/FLAIROx/JaxMARL): Lots of different multi-agent RL algorithms
 
 RL Environments in Jax
 - [Gymnax](https://github.com/RobertTLange/gymnax): Standard RL interface with several environments, such as classic control and MinAtar.
@@ -116,6 +117,7 @@ RL Environments in Jax
 - [Pgx](https://github.com/sotetsuk/pgx): Board games, such as Chess and Go.
 - [Brax](https://github.com/google/brax): Continuous Control (like Mujoco), in Jax
 - [XLand-MiniGrid](https://github.com/corl-team/xland-minigrid): Meta RL environments, taking ideas from XLand and Minigrid
+- [Craftax](https://github.com/MichaelTMatthews/Craftax): Greatly extended version of [Crafter](https://github.com/danijar/crafter) in Jax.
 
 ## Projects using JaxUED
 TBD
