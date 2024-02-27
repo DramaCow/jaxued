@@ -1,0 +1,48 @@
+site_name: Jax UED
+site_url: https://example.com/
+nav:
+  - Home: index.md
+  - Getting Started: getting_started.md
+  - Documentation:
+    - UnderspecifiedEnv: underspecified_env.md
+    - Level Sampler: level_sampler.md
+    - Environments:
+      - Maze: maze.md
+      - Wrappers: wrappers.md
+  - Examples: 
+     Maze DR: maze_dr.md
+     Maze PLR/ACCEL: maze_plr.md
+     Maze PAIRED: maze_paired.md
+markdown_extensions:
+  - toc:
+      toc_depth: 2
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+theme: 
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)" 
+      scheme: slate
+      primary: teal
+      accent: light green
+      toggle:
+        icon: material/lightbulb
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)" 
+      scheme: default
+      primary: green
+      accent: deep orange
+      toggle:
+        icon: material/lightbulb-outline
+        name: Switch to dark mode
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [../examples,../jaxued,..]
+          options:
+            show_docstring_examples: true
+            show_root_heading: false
+            show_source: False
