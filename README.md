@@ -120,7 +120,8 @@ RL Environments in Jax
 - [Craftax](https://github.com/MichaelTMatthews/Craftax): Greatly extended version of [Crafter](https://github.com/danijar/crafter) in Jax.
 
 ## Projects using JaxUED
-TBD
+- [Craftax](https://github.com/MichaelTMatthews/Craftax): Using UED to generate worlds for learning an RL agent.
+- [ReMiDi](https://github.com/Michael-Beukman/ReMiDi): JaxUED is the primary library used for baselines and the backbone for implementing ReMiDi.
 
 ## 📜 Citation
 For attribution in academic contexts, please cite this work as
