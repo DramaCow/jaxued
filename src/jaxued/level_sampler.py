@@ -360,7 +360,7 @@ class LevelSampler:
     def flush(self, sampler: Sampler) -> Sampler:
         """
         Flushes this sampler, putting it back to its empty state. 
-        This does update it in place. TODO: Do we want that? Sam: When jitted it doesn't.
+        This does update it in place.
 
         Args:
             sampler (Sampler): 
@@ -381,7 +381,7 @@ class LevelSampler:
                 **sampler,
                 "levels": jax.tree_map(lambda x, y: x.at[idx].set(y), sampler["levels"], level),
                 "scores": sampler["scores"].at[idx].set(score),
-                "timestamps": sampler["timestamps"].at[idx].set(sampler["episode_count"] + 1), # TODO: what here?
+                "timestamps": sampler["timestamps"].at[idx].set(sampler["episode_count"] + 1),
                 "size": jnp.minimum(sampler["size"] + 1, self.capacity),
             }
             if level_extra is not None:
