@@ -100,6 +100,25 @@ to
 
 And make any other changes necessary to the network architecture, etc.
 
+## Craftax
+`examples/craftax/craftax_plr.py` contains code to run DR, PLR and ACCEL in [Craftax](https://github.com/MichaelTMatthews/Craftax).
+To use Craftax, install it using 
+```bash
+pip install git+https://github.com/MichaelTMatthews/Craftax.git@main
+```
+
+Run it using the following command (see [here](https://dramacow.github.io/jaxued/craftax/) for the full list of arguments):
+
+```
+python examples/craftax/craftax_plr.py --exploratory_grad_updates --num_train_envs 512 --num_updates 256
+```
+
+Currently, this only supports CraftaxSymbolic, but the following are coming soon:
+
+- [ ] Support for Pixel Environments
+- [ ] Support for Craftax-Classic
+- [ ] Support for an RNN policy
+
 ## See Also
 Here are some other libraries that also leverage Jax to obtain massive speedups in RL, which acted as inspiration for JaxUED.
 

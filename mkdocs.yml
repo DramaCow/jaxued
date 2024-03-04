@@ -13,6 +13,7 @@ nav:
      Maze DR: maze_dr.md
      Maze PLR/ACCEL: maze_plr.md
      Maze PAIRED: maze_paired.md
+     Craftax: craftax.md
 markdown_extensions:
   - toc:
       toc_depth: 2

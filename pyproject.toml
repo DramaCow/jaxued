@@ -29,6 +29,7 @@ dependencies = [
     "gymnax",
     "distrax",
     "optax",
+    "orbax-checkpoint==0.5.3",
     "orbax",
     "wandb",
     "pillow",
