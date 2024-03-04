@@ -15,10 +15,12 @@ import orbax.checkpoint as ocp
 from craftax.constants import BLOCK_PIXEL_SIZE_IMG
 from craftax.envs.craftax_pixels_env import CraftaxPixelsEnv
 from craftax.envs.craftax_symbolic_env import CraftaxSymbolicEnv
-from craftax.renderer import render_craftax_pixels
+from craftax.renderer import render_craftax_pixels as render_pixels
+from craftax_classic.renderer import render_craftax_pixels as render_pixels_classic
 from craftax.world_gen.world_gen import generate_world as generate_world_craftax
 from craftax_classic.world_gen import generate_world as generate_world_classic
 from craftax_classic.envs.craftax_symbolic_env import CraftaxClassicSymbolicEnv
+from craftax_classic.envs.craftax_pixels_env import CraftaxClassicPixelsEnv
 from flax import core, struct
 from flax.linen.initializers import constant, orthogonal
 from flax.training.train_state import TrainState as BaseTrainState
@@ -539,22 +541,30 @@ def main(config=None, project="JAXUED_TEST"):
             return generate_world(rng, env.default_params, DEFAULT_STATICS)
     
     # Setup the environment. 
-    # TODO: Add support for Craftax-Classic
     # TODO: Add support for Pixels
-    if 'Classic' in config['env_name']: raise ValueError("Classic environments are not supported yet.") 
     if 'Pixels' in config['env_name']:  raise ValueError("Pixel-environments are not supported yet.") 
+    is_classic = False
     if config['env_name'] == 'Craftax-Classic-Symbolic-v1':
         ENV_CLASS = CraftaxClassicSymbolicEnv
+        generate_world = generate_world_classic
+        render_craftax_pixels = render_pixels_classic
+        is_classic = True
     elif config['env_name'] == 'Craftax-Classic-Pixels-v1':
-        ENV_CLASS = CraftaxLoggerGymnaxWrapper
+        ENV_CLASS = CraftaxClassicPixelsEnv
+        generate_world = generate_world_classic
+        render_craftax_pixels = render_pixels_classic
+        is_classic = True
     elif config['env_name'] == 'Craftax-Symbolic-v1':
         ENV_CLASS = CraftaxSymbolicEnv
+        generate_world = generate_world_craftax
+        render_craftax_pixels = render_pixels
     elif config['env_name'] == 'Craftax-Pixels-v1':
         ENV_CLASS = CraftaxPixelsEnv
+        generate_world = generate_world_craftax
+        render_craftax_pixels = render_pixels
     else:
         raise ValueError(f"Unknown environment: {config['env_name']}")
-
-    generate_world = generate_world_craftax
+    
     DEFAULT_STATICS = ENV_CLASS.default_static_params()
     default_env = ENV_CLASS(DEFAULT_STATICS)
     env = LogWrapper(default_env)
@@ -563,11 +573,11 @@ def main(config=None, project="JAXUED_TEST"):
     env_params = env.default_params
     # What mutator do we use?
     if config['accel_mutation'] == 'noise':
-        mutate_level = make_mutator_craftax_mutate_angles(DEFAULT_STATICS, env.default_params)
-    elif config['accel_mutation'] == 'restricted_swap':
-        mutate_level = make_mutator_craftax_swap_restricted(DEFAULT_STATICS, one_should_be_middle=True)
+        mutate_level = make_mutator_craftax_mutate_angles(generate_world, DEFAULT_STATICS, env.default_params)
+    elif config['accel_mutation'] == 'swap_restricted':
+        mutate_level = make_mutator_craftax_swap_restricted(DEFAULT_STATICS, one_should_be_middle=True, is_craftax_classic=is_classic)
     elif config['accel_mutation'] == 'swap':
-        mutate_level = make_mutator_craftax_swap(DEFAULT_STATICS, only_middle=True)
+        mutate_level = make_mutator_craftax_swap(DEFAULT_STATICS, only_middle=True, is_craftax_classic=is_classic)
     else:
         raise ValueError(f"Unknown mutation type: {config['accel_mutation']}")
         
@@ -892,7 +902,7 @@ if __name__=="__main__":
     parser.add_argument("--seed", type=int, default=0)
     
     # === Train vs Eval ===
-    parser.add_argument("--env_name", type=str, choices=['Craftax-Symbolic-v1', 'Craftax-Pixels-v1'], default='Craftax-Symbolic-v1')
+    parser.add_argument("--env_name", type=str, choices=['Craftax-Symbolic-v1', 'Craftax-Pixels-v1', 'Craftax-Classic-Symbolic-v1', 'Craftax-Classic-Pixels-v1'], default='Craftax-Symbolic-v1')
     parser.add_argument("--mode", type=str, default='train')
     parser.add_argument("--checkpoint_directory", type=str, default=None)
     parser.add_argument("--checkpoint_to_eval", type=int, default=-1)
