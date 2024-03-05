@@ -80,7 +80,9 @@ class LogWrapper(UnderspecifiedEnv):
         info["returned_episode"]            = done
         info['achievements']                = env_state.achievements
         info['achievement_count']           = env_state.achievements.sum()
-        info['floor']                       = env_state.player_level
+        
+        if hasattr(env_state, 'player_level'):
+            info['floor']                       = env_state.player_level
         return obs, state, reward, done, info
 
     def get_obs(self, state: LogEnvState) -> chex.Array:
