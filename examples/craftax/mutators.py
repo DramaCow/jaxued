@@ -2,15 +2,15 @@ import jax
 import jax.numpy as jnp
 
 from craftax_classic.envs.craftax_state import EnvState, StaticEnvParams
-from craftax.world_gen.world_gen import generate_world
 from craftax.constants import BlockType
 
-def make_mutator_craftax_swap(static_env_params: StaticEnvParams, only_middle=True):
+def make_mutator_craftax_swap(static_env_params: StaticEnvParams, only_middle=True, is_craftax_classic=False):
     """Creates the unrestricted swap mutator. Here any tile can swap with any other tile.
 
     Args:
         static_env_params (StaticEnvParams): 
         only_middle (bool, optional): If true, swaps only happen in the middle 16 unit^2 area . Defaults to True.
+        is_craftax_classic (bool, optional): If true, mutates a craftax classic env state, otherwise assumes the env state is Craftax. Defaults to False.
     """
     SIZE = static_env_params.map_size[0] * static_env_params.map_size[1]
     def add_blocktype(rng, level: EnvState, blocktype: BlockType) -> EnvState:
@@ -81,6 +81,7 @@ def make_mutator_craftax_swap(static_env_params: StaticEnvParams, only_middle=Tr
     NUM_BLOCKS_TO_CHOOSE = len(good_blocks)
     good_blocks_to_choose_from = jnp.array([b.value for b in good_blocks])
     def mutate_level(rng, level: EnvState, n=1):
+        if is_craftax_classic: level = level.replace(map=level.map[None])
         def _single_mutate(carry, _):
             rng, level = carry
             rng, _rng, _rng2 = jax.random.split(rng, 3)
@@ -88,18 +89,21 @@ def make_mutator_craftax_swap(static_env_params: StaticEnvParams, only_middle=Tr
             level = add_blocktype(_rng2, level, block_to_add)
             return (rng, level), None
         (rng, level), _ = jax.lax.scan(_single_mutate, (rng, level), None, length=n)
+        if is_craftax_classic: level = level.replace(map=level.map[0])
         return level
     
     return mutate_level
 
-def make_mutator_craftax_swap_restricted(static_env_params: StaticEnvParams, one_should_be_middle=False):
+def make_mutator_craftax_swap_restricted(static_env_params: StaticEnvParams, one_should_be_middle=False, is_craftax_classic=False):
     """Mutates levels by swapping two blocks of certain types.
         Stone can swap with ores and grass can swap with trees.
 
     Args:
         static_env_params (StaticEnvParams): 
         one_should_be_middle (bool, optional): If this is true, one of the swapped blocks should be in the middle 16 unit^2 part of the map Defaults to False.
+        is_craftax_classic (bool, optional): If true, mutates a craftax classic env state, otherwise assumes the env state is Craftax. Defaults to False.
     """
+
     SIZE = static_env_params.map_size[0] * static_env_params.map_size[1]
     # 1. Pick a blocktype and a allowed swap one
     # 2. Pick a random block of that type
@@ -178,20 +182,24 @@ def make_mutator_craftax_swap_restricted(static_env_params: StaticEnvParams, one
     NUM_BLOCKS_TO_CHOOSE = len(good_blocks)
     good_blocks_to_choose_from = jnp.array([b.value for b in good_blocks])
     def mutate_level(rng, level: EnvState, n=1):
+        if is_craftax_classic: level = level.replace(map=level.map[None])
+        
         def _single_mutate(carry, _):
             rng, level = carry
             rng, _rng, _rng2 = jax.random.split(rng, 3)
             level = single_step(_rng2, level)
             return (rng, level), None
         (rng, level), _ = jax.lax.scan(_single_mutate, (rng, level), None, length=n)
+        if is_craftax_classic: level = level.replace(map=level.map[0])
         return level
     
     return mutate_level
 
-def make_mutator_craftax_mutate_angles(static_env_params: StaticEnvParams, params_to_use):
+def make_mutator_craftax_mutate_angles(generate_world, static_env_params: StaticEnvParams, params_to_use):
     """Mutates levels based on the angles of the fractal noise.
 
     Args:
+        generate_world: Either Craftax classic's generate_world or Craftax's generate_world
         static_env_params (StaticEnvParams):
         params_to_use (_type_):
     """
