@@ -145,5 +145,10 @@ RL Environments in Jax
 ## 📜 Citation
 For attribution in academic contexts, please cite this work as
 ```
-TBD
+@article{coward2024JaxUED,
+  title={JaxUED: A simple and useable UED library in Jax},
+  author={Samuel Coward and Michael Beukman and Jakob Foerster},
+  journal={arXiv preprint},
+  year={2024},
+}
 ```
