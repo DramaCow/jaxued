@@ -99,8 +99,8 @@ to
 ```
 
 And make any other changes necessary to the network architecture, etc.
-
-## Craftax
+## Supported Environments
+### Craftax
 `examples/craftax/craftax_plr.py` contains code to run DR, PLR and ACCEL in [Craftax](https://github.com/MichaelTMatthews/Craftax).
 To use Craftax, install it using 
 ```bash
@@ -118,6 +118,11 @@ Currently, this only supports CraftaxSymbolic, but the following are coming soon
 - [ ] Support for Pixel Environments
 - [ ] Support for Craftax-Classic
 - [ ] Support for an RNN policy
+
+### Gymnax
+See `examples/gymnax/gymnax_plr.py` to run gymnax environments, currently supporting Acrobot, Pendulum and Cartpole. Use the `--env` flag with the name of the environment in lowercase to choose which is used. We have set the distribution of levels as somewhat arbitrary, changing two of the parameters of each environments (e.g. length and mass in Cartpole). This can easily be changed, however. The evaluation distribution is also somewhat arbitrary and can be easily changed.
+
+The `examples/gymnax/gymnax_plr.py` can be modified to add additional environments as well.
 
 ## See Also
 Here are some other libraries that also leverage Jax to obtain massive speedups in RL, which acted as inspiration for JaxUED.
