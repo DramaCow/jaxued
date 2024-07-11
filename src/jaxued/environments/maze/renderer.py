@@ -34,8 +34,9 @@ class MazeRenderer(object):
     @partial(jax.jit, static_argnums=(0,))
     def render_state(self, env_state: EnvState, env_params: EnvParams) -> chex.Array:
         tile_size = self.tile_size
-        nrows = self.env.max_height + 2*self.render_border
-        ncols = self.env.max_width + 2*self.render_border
+        max_height, max_width = env_state.wall_map.shape
+        nrows = max_height + 2*self.render_border
+        ncols = max_width + 2*self.render_border
         width_px = ncols * tile_size
         height_px = nrows * tile_size
         
