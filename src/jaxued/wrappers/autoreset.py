@@ -112,7 +112,7 @@ class AutoResetFiniteWrapper(UnderspecifiedEnv):
         rng_sample, rng_reset, rng_step = jax.random.split(rng, 3)
         
         new_level_idx = jax.random.choice(rng_sample, self._num_levels, p=self._p)
-        new_level = jax.tree_map(lambda x: x[level_idx], self._levels)
+        new_level = jax.tree_map(lambda x: x[new_level_idx], self._levels)
         
         obs_re, env_state_re = self._env.reset_to_level(rng_reset, new_level, params)
         obs_st, env_state_st, reward, done, info = self._env.step(
