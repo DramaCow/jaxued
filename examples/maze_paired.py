@@ -548,12 +548,12 @@ def main(config=None, project="JAXUED_TEST"):
         # protagonist rollout
         rng, _rng = jax.random.split(rng)
         pro_rollout, (dones, rewards, _, _, _) = rollout(_rng, env, env_params, pro_train_state, ActorCritic.initialize_carry((config["num_train_envs"],)), levels, config["student_num_steps"], "student_")
-        pro_max_returns, pro_mean_returns, pro_eps = compute_max_mean_returns_epcount(dones, rewards)
+        pro_mean_returns, pro_max_returns, pro_eps = compute_max_mean_returns_epcount(dones, rewards)
 
         # antagonist rollout
         rng, _rng = jax.random.split(rng)
         ant_rollout, (dones, rewards, _,  _, _) = rollout(_rng, env, env_params, ant_train_state, ActorCritic.initialize_carry((config["num_train_envs"],)), levels, config["student_num_steps"], "student_")
-        ant_max_returns, ant_mean_returns, ant_eps = compute_max_mean_returns_epcount(dones, rewards)
+        ant_mean_returns, ant_max_returns, ant_eps = compute_max_mean_returns_epcount(dones, rewards)
 
         # Adversary Rewards
         est_regret = ant_max_returns - pro_mean_returns
