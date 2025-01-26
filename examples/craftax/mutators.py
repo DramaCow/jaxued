@@ -1,8 +1,8 @@
 import jax
 import jax.numpy as jnp
 
-from craftax_classic.envs.craftax_state import EnvState, StaticEnvParams
-from craftax.constants import BlockType
+from craftax.craftax_classic.envs.craftax_state import EnvState, StaticEnvParams
+from craftax.craftax.constants import BlockType
 
 def make_mutator_craftax_swap(static_env_params: StaticEnvParams, only_middle=True, is_craftax_classic=False):
     """Creates the unrestricted swap mutator. Here any tile can swap with any other tile.
