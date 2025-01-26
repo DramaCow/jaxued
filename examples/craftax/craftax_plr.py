@@ -12,15 +12,15 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 import orbax.checkpoint as ocp
-from craftax.constants import BLOCK_PIXEL_SIZE_IMG
-from craftax.envs.craftax_pixels_env import CraftaxPixelsEnv
-from craftax.envs.craftax_symbolic_env import CraftaxSymbolicEnv
-from craftax.renderer import render_craftax_pixels as render_pixels
-from craftax_classic.renderer import render_craftax_pixels as render_pixels_classic
-from craftax.world_gen.world_gen import generate_world as generate_world_craftax
-from craftax_classic.world_gen import generate_world as generate_world_classic
-from craftax_classic.envs.craftax_symbolic_env import CraftaxClassicSymbolicEnv
-from craftax_classic.envs.craftax_pixels_env import CraftaxClassicPixelsEnv
+from craftax.craftax.constants import BLOCK_PIXEL_SIZE_IMG
+from craftax.craftax.envs.craftax_pixels_env import CraftaxPixelsEnv
+from craftax.craftax.envs.craftax_symbolic_env import CraftaxSymbolicEnv
+from craftax.craftax.renderer import render_craftax_pixels as render_pixels
+from craftax.craftax_classic.renderer import render_craftax_pixels as render_pixels_classic
+from craftax.craftax.world_gen.world_gen import generate_world as generate_world_craftax
+from craftax.craftax_classic.world_gen import generate_world as generate_world_classic
+from craftax.craftax_classic.envs.craftax_symbolic_env import CraftaxClassicSymbolicEnv
+from craftax.craftax_classic.envs.craftax_pixels_env import CraftaxClassicPixelsEnv
 from flax import core, struct
 from flax.linen.initializers import constant, orthogonal
 from flax.training.train_state import TrainState as BaseTrainState
@@ -512,17 +512,17 @@ def main(config=None, project="JAXUED_TEST"):
         log_dict.update(train_state_info["log"])
 
         # images
-        log_dict.update({"images/highest_scoring_level": wandb.Image(np.array(stats["highest_scoring_level"]), caption="Highest scoring level")})
-        log_dict.update({"images/highest_weighted_level": wandb.Image(np.array(stats["highest_weighted_level"]), caption="Highest weighted level")})
+        # log_dict.update({"images/highest_scoring_level": wandb.Image(np.array(stats["highest_scoring_level"]), caption="Highest scoring level")})
+        # log_dict.update({"images/highest_weighted_level": wandb.Image(np.array(stats["highest_weighted_level"]), caption="Highest weighted level")})
 
-        for s in ['dr', 'replay', 'mutation']:
-            if train_state_info['info'][f'num_{s}_updates'] > 0:
-                log_dict.update({f"images/{s}_levels": [wandb.Image(np.array(image)) for image in stats[f"{s}_levels"]]})
+        # for s in ['dr', 'replay', 'mutation']:
+        #     if train_state_info['info'][f'num_{s}_updates'] > 0:
+        #         log_dict.update({f"images/{s}_levels": [wandb.Image(np.array(image)) for image in stats[f"{s}_levels"]]})
 
-        i = 0
-        frames, episode_length = stats["eval_animation"][0][:, i], stats["eval_animation"][1][i]
-        frames = np.array(frames[:episode_length])
-        log_dict.update({f"animations/animation": wandb.Video(frames, fps=4)})
+        # i = 0
+        # frames, episode_length = stats["eval_animation"][0][:, i], stats["eval_animation"][1][i]
+        # frames = np.array(frames[:episode_length])
+        # log_dict.update({f"animations/animation": wandb.Video(frames, fps=4)})
         
         wandb.log(log_dict)
     def sample_random_level(rng):
@@ -689,7 +689,7 @@ def main(config=None, project="JAXUED_TEST"):
                 (obs, actions, rewards, dones, log_probs, values, info, advantages, targets, losses, grads)
              ) = sample_trajectories_and_learn(env, env_params, config,
                                   rng, train_state, init_obs, init_env_state, update_grad=True)
-            
+            jax.debug.print("{}",  (info["returned_episode_returns"] * dones).sum() / dones.sum())
             max_returns = jnp.maximum(level_sampler.get_levels_extra(sampler, level_inds)["max_return"], compute_max_returns(dones, rewards))
             scores = compute_score(config, dones, values, max_returns, advantages)
             sampler = level_sampler.update_batch(sampler, level_inds, scores, {"max_return": max_returns})
@@ -832,15 +832,15 @@ def main(config=None, project="JAXUED_TEST"):
         
         max_num_images = 32
 
-        metrics["dr_levels"] = jax.vmap(render_craftax_pixels, (0, None))(jax.tree_map(lambda x: x[:max_num_images], train_state.dr_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
-        metrics["replay_levels"] = jax.vmap(render_craftax_pixels, (0, None))(jax.tree_map(lambda x: x[:max_num_images], train_state.replay_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
-        metrics["mutation_levels"] = jax.vmap(render_craftax_pixels, (0, None))(jax.tree_map(lambda x: x[:max_num_images], train_state.mutation_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
+        metrics["dr_levels"] = None # jax.vmap(render_craftax_pixels, (0, None))(jax.tree_map(lambda x: x[:max_num_images], train_state.dr_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
+        metrics["replay_levels"] = None # jax.vmap(render_craftax_pixels, (0, None))(jax.tree_map(lambda x: x[:max_num_images], train_state.replay_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
+        metrics["mutation_levels"] = None # jax.vmap(render_craftax_pixels, (0, None))(jax.tree_map(lambda x: x[:max_num_images], train_state.mutation_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
         
         highest_scoring_level = level_sampler.get_levels(train_state.sampler, train_state.sampler["scores"].argmax())
         highest_weighted_level = level_sampler.get_levels(train_state.sampler, level_sampler.level_weights(train_state.sampler).argmax())
         
-        metrics["highest_scoring_level"] = render_craftax_pixels(highest_scoring_level, BLOCK_PIXEL_SIZE_IMG)
-        metrics["highest_weighted_level"] = render_craftax_pixels(highest_weighted_level, BLOCK_PIXEL_SIZE_IMG)
+        metrics["highest_scorxing_level"] = None # render_craftax_pixels(highest_scoring_level, BLOCK_PIXEL_SIZE_IMG)
+        metrics["highest_weighted_level"] = None # render_craftax_pixels(highest_weighted_level, BLOCK_PIXEL_SIZE_IMG)
         
         return (rng, train_state), metrics
     

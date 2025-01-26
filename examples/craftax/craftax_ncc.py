@@ -36,6 +36,7 @@ from jaxued.utils import compute_max_returns, max_mc, positive_value_loss
 from jaxued.wrappers import AutoReplayWrapper
 
 # Hack to resolve paths
+from functools import partial
 import sys
 sys.path.append('.')
 from examples.craftax.craftax_wrappers import CraftaxLoggerGymnaxWrapper, LogWrapper
@@ -620,6 +621,7 @@ def main(config=None, project="JAXUED_TEST"):
         duplicate_check=config['buffer_duplicate_check'],
     )
 
+    @partial(jax.jit, static_argnums=(2, ))
     def learnability_fn(rng, levels, num_envs, train_state):
         def rollout_fn(rng):
 
@@ -693,7 +695,7 @@ def main(config=None, project="JAXUED_TEST"):
         tx = optax.chain(
                 optax.clip_by_global_norm(config["max_grad_norm"]),
                 ti_ada(vy0 = jnp.zeros(config["level_buffer_capacity"]), eta=linear_schedule),
-                optax.scale_by_learning_rate(1.0)
+                # optax.scale_by_learning_rate(1.0)
             )
         rng, _rng = jax.random.split(rng)
         init_levels = jax.vmap(sample_random_level)(jax.random.split(_rng, config["level_buffer_capacity"]))
@@ -728,8 +730,9 @@ def main(config=None, project="JAXUED_TEST"):
             (obs, actions, rewards, dones, log_probs, values, info, advantages, targets, losses, grads)
             ) = sample_trajectories_and_learn(env, env_params, config,
                                 rng, train_state, init_obs, init_env_state, update_grad=True)
+        jax.debug.print("{}",  (info["returned_episode_returns"] * dones).sum() / dones.sum())
         
-       # Update the level sampler
+        # Update the level sampler
         levels = sampler["levels"]
         rng, _rng = jax.random.split(rng)
         scores, _ = learnability_fn(_rng, levels, config['level_buffer_capacity'], train_state)
@@ -740,7 +743,7 @@ def main(config=None, project="JAXUED_TEST"):
 
         grad, y_opt_state = y_ti_ada.update(new_sampler["scores"], y_opt_state)
         xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
-    
+
         metrics = {
             "losses": jax.tree_map(lambda x: x.mean(), losses),
             "achievements": (info["achievements"] * dones[..., None]).sum(axis=0).sum(axis=0) / dones.sum(),
