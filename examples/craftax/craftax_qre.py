@@ -722,7 +722,7 @@ def main(config=None, project="JAXUED_TEST"):
         
         rng, train_state, xhat, prev_grad, y_opt_state = carry
 
-        new_score = projection_simplex_truncated(xhat + prev_grad, config["meta_trunc"]) # if config["META_OPTIMISTIC"] else xhat
+        new_score = xhat # projection_simplex_truncated(xhat + prev_grad, config["meta_trunc"]) # if config["META_OPTIMISTIC"] else xhat
         sampler = {**train_state.sampler, "scores": new_score}
         # Collect trajectories on replay levels
         rng, rng_levels, rng_reset = jax.random.split(rng, 3)
@@ -741,14 +741,23 @@ def main(config=None, project="JAXUED_TEST"):
         rng, _rng = jax.random.split(rng)
         scores, _ = learnability_fn(_rng, levels, config['level_buffer_capacity'], train_state)
 
-        jax.debug.print("top 10 scores: {}", jax.lax.top_k(scores, 10))
+        # jax.debug.print("top 10 scores: {}", jax.lax.top_k(scores, 10))
 
         rng, _rng = jax.random.split(rng)
         new_sampler = replace_fn(_rng, train_state, scores)
         sampler = {**new_sampler, "scores": new_score}
 
-        grad, y_opt_state = y_ti_ada.update(new_sampler["scores"], y_opt_state)
-        xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
+        grad_fn = jax.grad(lambda y: y.T @ new_sampler["scores"] - 0.01 * jnp.log(y + 1e-6).T @ y)
+
+        def adv_loop(carry, _):
+            y, y_opt_state = carry
+
+            grad, y_opt_state = y_ti_ada.update(grad_fn(y), y_opt_state)
+            y = projection_simplex_truncated(y + grad, config["meta_trunc"])
+
+            return (y, y_opt_state), None
+
+        (xhat, y_opt_state), _ = jax.lax.scan(adv_loop, (xhat, y_opt_state), None, length=1000)
 
         metrics = {
             "losses": jax.tree_map(lambda x: x.mean(), losses),
@@ -932,7 +941,7 @@ if __name__=="__main__":
     group.add_argument("--gae_lambda", type=float, default=0.9)
     group.add_argument("--entropy_coeff", type=float, default=0.01)
     group.add_argument("--critic_coeff", type=float, default=0.5)
-    group.add_argument("--meta_lr", type=float, default=1e-2)
+    group.add_argument("--meta_lr", type=float, default=1e-3)
     group.add_argument("--meta_trunc", type=float, default=1e-5)
     # === PLR ===
     group.add_argument("--score_function", type=str, default="MaxMC", choices=["MaxMC", "pvl"])
