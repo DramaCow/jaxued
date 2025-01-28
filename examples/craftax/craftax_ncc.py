@@ -650,10 +650,23 @@ def main(config=None, project="JAXUED_TEST"):
             return disc_return
         
         rng, _rng = jax.random.split(rng)
-        returns = jax.vmap(rollout_fn)(jax.random.split(_rng, 5))
-
-        # NOTE: we divide by 226 to get % of achievements gained
-        return (returns / 226).var(axis=0), returns.max(axis=0)
+        num_samples = 5
+        returns = jax.vmap(rollout_fn)(jax.random.split(_rng, num_samples))
+        
+        # fit gaussian to mean episode returns
+        
+        def gaussian_pdf(x, mean, var):
+            return (1 / (jnp.sqrt(2 * jnp.pi) * var)) * jnp.exp(-0.5 * ((x - mean) / var) ** 2)
+        
+        mean_returns = jnp.mean(returns, axis=0)
+        mu = mean_returns.mean()
+        sigma_2 = mean_returns.var()
+        
+        pdf_values = gaussian_pdf(mean_returns, mu, sigma_2)
+        
+        scores = jnp.sqrt(returns.var(axis=0)) / jnp.sqrt(num_samples) * pdf_values
+        
+        return scores, returns.max(axis=0)
 
     def replace_fn(rng, train_state, old_level_scores):
         # NOTE: scores here are the actual UED scores, NOT the probabilities induced by the projection
@@ -917,19 +930,19 @@ if __name__=="__main__":
     parser.add_argument("--eval_num_attempts", type=int, default=1)
     group = parser.add_argument_group('Training params')
     # === PPO === 
-    group.add_argument("--lr", type=float, default=1e-4)
+    group.add_argument("--lr", type=float, default=2e-4)
     group.add_argument("--max_grad_norm", type=float, default=1.0)
     mut_group = group.add_mutually_exclusive_group()
-    mut_group.add_argument("--num_updates", type=int, default=256)
+    mut_group.add_argument("--num_updates", type=int, default=500)
     mut_group.add_argument("--num_env_steps", type=int, default=None)
     parser.add_argument("--num_steps", type=int, default=64)
     parser.add_argument("--outer_rollout_steps", type=int, default=64)
     group.add_argument("--num_train_envs", type=int, default=1024)
-    group.add_argument("--num_minibatches", type=int, default=2)
-    group.add_argument("--gamma", type=float, default=0.995)
-    group.add_argument("--epoch_ppo", type=int, default=5)
+    group.add_argument("--num_minibatches", type=int, default=8)
+    group.add_argument("--gamma", type=float, default=0.99)
+    group.add_argument("--epoch_ppo", type=int, default=4)
     group.add_argument("--clip_eps", type=float, default=0.2)
-    group.add_argument("--gae_lambda", type=float, default=0.9)
+    group.add_argument("--gae_lambda", type=float, default=0.8)
     group.add_argument("--entropy_coeff", type=float, default=0.01)
     group.add_argument("--critic_coeff", type=float, default=0.5)
     group.add_argument("--meta_lr", type=float, default=1e-2)
