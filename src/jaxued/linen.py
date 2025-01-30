@@ -26,7 +26,7 @@ class ResetRNN(nn.Module):
 
         def scan_fn(cell, carry, inputs):
             x, resets = inputs
-            carry = jax.tree_map(
+            carry = jax.tree_util.tree_map(
                 lambda a, b: jnp.where(resets[:, None], a, b), reset_carry, carry
             )
             return cell(carry, x)

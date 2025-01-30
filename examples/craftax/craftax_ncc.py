@@ -232,12 +232,12 @@ def update_actor_critic(
             if update_grad:
                 train_state = train_state.apply_gradients(grads=grads)
 
-            grad_norm = jnp.linalg.norm(jnp.concatenate(jax.tree_map(lambda x: x.flatten(), jax.tree_util.tree_flatten(grads)[0])))
+            grad_norm = jnp.linalg.norm(jnp.concatenate(jax.tree_util.tree_map(lambda x: x.flatten(), jax.tree_util.tree_flatten(grads)[0])))
             return train_state, (loss, grad_norm)
 
         rng, train_state = carry
         rng, rng_perm = jax.random.split(rng)
-        minibatches = jax.tree_map(
+        minibatches = jax.tree_util.tree_map(
             lambda x: jnp.take(
                 x.reshape((-1, *x.shape[2:])),
                 jax.random.permutation(rng_perm, num_envs * n_steps),
@@ -316,7 +316,7 @@ def sample_trajectories_and_learn(env: UnderspecifiedEnv, env_params: EnvParams,
     carry = (rng, train_state, init_obs, init_env_state)
     new_carry, all_rollouts = jax.lax.scan(single_step, carry, None, length=config['outer_rollout_steps'])
 
-    all_rollouts = jax.tree_map(lambda x: jnp.concatenate(x, axis=0), all_rollouts)
+    all_rollouts = jax.tree_util.tree_map(lambda x: jnp.concatenate(x, axis=0), all_rollouts)
     return new_carry, all_rollouts
 
 def evaluate(
@@ -702,7 +702,7 @@ def main(config=None, project="JAXUED_TEST"):
             )
             return config["lr"] * frac
         obs, _ = env.reset_to_level(rng, sample_random_level(rng), env_params)
-        obs = jax.tree_map(
+        obs = jax.tree_util.tree_map(
             lambda x: jnp.repeat(jnp.repeat(x[None, ...], config["num_train_envs"], axis=0)[None, ...], 256, axis=0),
             obs,
         )
@@ -764,7 +764,7 @@ def main(config=None, project="JAXUED_TEST"):
         xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
 
         metrics = {
-            "losses": jax.tree_map(lambda x: x.mean(), losses),
+            "losses": jax.tree_util.tree_map(lambda x: x.mean(), losses),
             "achievements": (info["achievements"] * dones[..., None]).sum(axis=0).sum(axis=0) / dones.sum(),
             "achievement_count": (info["achievement_count"] * dones).sum() / dones.sum(),
             "returned_episode_lengths": (info["returned_episode_lengths"] * dones).sum() / dones.sum(),
@@ -826,9 +826,9 @@ def main(config=None, project="JAXUED_TEST"):
         eval_returns = cum_rewards.mean(axis=0) # (num_eval_levels,)
         
         # just grab the first run
-        states, episode_lengths = jax.tree_map(lambda x: x[0], (states, episode_lengths)) # (num_steps, num_eval_levels, ...), (num_eval_levels,)
+        states, episode_lengths = jax.tree_util.tree_map(lambda x: x[0], (states, episode_lengths)) # (num_steps, num_eval_levels, ...), (num_eval_levels,)
         # And one attempt
-        states = jax.tree_map(lambda x: x[:, :1], states)
+        states = jax.tree_util.tree_map(lambda x: x[:, :1], states)
         episode_lengths = episode_lengths[:1]
         images = jax.vmap(jax.vmap(render_craftax_pixels, (0, None)), (0, None))(states.env_state.env_state, BLOCK_PIXEL_SIZE_IMG) # (num_steps, num_eval_levels, ...)
         frames = images.transpose(0, 1, 4, 2, 3) # WandB expects color channel before image dimensions when dealing with animations for some reason
@@ -840,9 +840,9 @@ def main(config=None, project="JAXUED_TEST"):
         
         max_num_images = 32
 
-        metrics["dr_levels"] = None # jax.vmap(render_craftax_pixels, (0, None))(jax.tree_map(lambda x: x[:max_num_images], train_state.dr_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
-        metrics["replay_levels"] = None # jax.vmap(render_craftax_pixels, (0, None))(jax.tree_map(lambda x: x[:max_num_images], train_state.replay_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
-        metrics["mutation_levels"] = None # jax.vmap(render_craftax_pixels, (0, None))(jax.tree_map(lambda x: x[:max_num_images], train_state.mutation_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
+        metrics["dr_levels"] = None # jax.vmap(render_craftax_pixels, (0, None))(jax.tree_util.tree_map(lambda x: x[:max_num_images], train_state.dr_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
+        metrics["replay_levels"] = None # jax.vmap(render_craftax_pixels, (0, None))(jax.tree_util.tree_map(lambda x: x[:max_num_images], train_state.replay_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
+        metrics["mutation_levels"] = None # jax.vmap(render_craftax_pixels, (0, None))(jax.tree_util.tree_map(lambda x: x[:max_num_images], train_state.mutation_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
         
         highest_scoring_level = level_sampler.get_levels(train_state.sampler, train_state.sampler["scores"].argmax())
         highest_weighted_level = level_sampler.get_levels(train_state.sampler, level_sampler.level_weights(train_state.sampler).argmax())

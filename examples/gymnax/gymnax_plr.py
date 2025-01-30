@@ -111,7 +111,7 @@ def sample_trajectories_rnn(
         rng, train_state, hstate, obs, env_state, last_done = carry
         rng, rng_action, rng_step = jax.random.split(rng, 3)
 
-        x = jax.tree_map(lambda x: x[None, ...], (obs, last_done))
+        x = jax.tree_util.tree_map(lambda x: x[None, ...], (obs, last_done))
         hstate, pi, value = train_state.apply_fn(train_state.params, x, hstate)
         action = pi.sample(seed=rng_action)
         log_prob = pi.log_prob(action)
@@ -142,7 +142,7 @@ def sample_trajectories_rnn(
         length=max_episode_length,
     )
 
-    x = jax.tree_map(lambda x: x[None, ...], (last_obs, last_done))
+    x = jax.tree_util.tree_map(lambda x: x[None, ...], (last_obs, last_done))
     _, _, last_value = train_state.apply_fn(train_state.params, x, hstate)
 
     return (rng, train_state, hstate, last_obs, last_env_state, last_value.squeeze(0)), traj
@@ -178,7 +178,7 @@ def evaluate_rnn(
         rng, hstate, obs, state, done, mask, episode_length = carry
         rng, rng_action, rng_step = jax.random.split(rng, 3)
 
-        x = jax.tree_map(lambda x: x[None, ...], (obs, done))
+        x = jax.tree_util.tree_map(lambda x: x[None, ...], (obs, done))
         hstate, pi, _ = train_state.apply_fn(train_state.params, x, hstate)
         action = pi.sample(seed=rng_action).squeeze(0)
 
@@ -275,12 +275,12 @@ def update_actor_critic_rnn(
         rng, rng_perm = jax.random.split(rng)
         permutation = jax.random.permutation(rng_perm, num_envs)
         minibatches = (
-            jax.tree_map(
+            jax.tree_util.tree_map(
                 lambda x: jnp.take(x, permutation, axis=0)
                 .reshape(n_minibatch, -1, *x.shape[1:]),
                 init_hstate,
             ),
-            *jax.tree_map(
+            *jax.tree_util.tree_map(
                 lambda x: jnp.take(x, permutation, axis=1)
                 .reshape(x.shape[0], n_minibatch, -1, *x.shape[2:])
                 .swapaxes(0, 1),
@@ -643,7 +643,7 @@ def main(config=None, project="JAXUED_TEST"):
             return config["lr"] * frac
         print("SS", sample_random_level(rng), rng, env_params)
         obs, _ = env.reset_to_level(rng, sample_random_level(rng), env_params)
-        obs = jax.tree_map(
+        obs = jax.tree_util.tree_map(
             lambda x: jnp.repeat(jnp.repeat(x[None, ...], config["num_train_envs"], axis=0)[None, ...], 256, axis=0),
             obs,
         )
@@ -657,7 +657,7 @@ def main(config=None, project="JAXUED_TEST"):
         )
         pholder_level = sample_random_level(jax.random.PRNGKey(0))
         sampler = level_sampler.initialize(pholder_level, {"max_return": -jnp.inf})
-        pholder_level_batch = jax.tree_map(lambda x: jnp.array([x]).repeat(config["num_train_envs"], axis=0), pholder_level)
+        pholder_level_batch = jax.tree_util.tree_map(lambda x: jnp.array([x]).repeat(config["num_train_envs"], axis=0), pholder_level)
         return TrainState.create(
             apply_fn=network.apply,
             params=network_params,
@@ -724,7 +724,7 @@ def main(config=None, project="JAXUED_TEST"):
             )
             
             metrics = {
-                "losses": jax.tree_map(lambda x: x.mean(), losses),
+                "losses": jax.tree_util.tree_map(lambda x: x.mean(), losses),
             }
             
             train_state = train_state.replace(
@@ -781,7 +781,7 @@ def main(config=None, project="JAXUED_TEST"):
             )
                             
             metrics = {
-                "losses": jax.tree_map(lambda x: x.mean(), losses),
+                "losses": jax.tree_util.tree_map(lambda x: x.mean(), losses),
             }
             
             train_state = train_state.replace(
@@ -842,7 +842,7 @@ def main(config=None, project="JAXUED_TEST"):
             )
             
             metrics = {
-                "losses": jax.tree_map(lambda x: x.mean(), losses),
+                "losses": jax.tree_util.tree_map(lambda x: x.mean(), losses),
             }
             
             train_state = train_state.replace(
@@ -915,7 +915,7 @@ def main(config=None, project="JAXUED_TEST"):
         eval_returns = cum_rewards.mean(axis=0) # (num_eval_levels,)
         
         # just grab the first run
-        states, episode_lengths = jax.tree_map(lambda x: x[0], (states, episode_lengths)) # (num_steps, num_eval_levels, ...), (num_eval_levels,)
+        states, episode_lengths = jax.tree_util.tree_map(lambda x: x[0], (states, episode_lengths)) # (num_steps, num_eval_levels, ...), (num_eval_levels,)
         
         metrics["update_count"] = train_state.num_dr_updates + train_state.num_replay_updates + train_state.num_mutation_updates
         metrics["eval_returns"] = eval_returns
@@ -971,10 +971,10 @@ def main(config=None, project="JAXUED_TEST"):
         start_time = time.time()
         runner_state, metrics = vmap_train_eval_step((jax.random.split(runner_state[0], NUM_REPEATS), runner_state[1]), None)
         runner_state = (runner_state[0][0], runner_state[1])
-        metrics = jax.tree_map(lambda x: x.mean(axis=0), metrics)
+        metrics = jax.tree_util.tree_map(lambda x: x.mean(axis=0), metrics)
         curr_time = time.time()
         metrics['time_delta'] = curr_time - start_time
-        log_eval(metrics, train_state_to_log_dict(jax.tree_map(lambda x: x[0], runner_state[1])
+        log_eval(metrics, train_state_to_log_dict(jax.tree_util.tree_map(lambda x: x[0], runner_state[1])
         , level_sampler))
         if config["checkpoint_save_interval"] > 0:
             checkpoint_manager.save(eval_step, args=ocp.args.StandardSave(runner_state[1]))
