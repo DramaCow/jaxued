@@ -22,7 +22,7 @@ parameters:
       - 9
   meta_lr:
     values: 
-      - 1e-2
+      - 5e-3
   level_buffer_capacity:
     values:
       - 100
@@ -37,5 +37,5 @@ parameters:
       - 20
 program: examples/craftax/craftax_ncc.py
 project: NCC-CRAFTAX
-
+name: crafax-ncc-non-optimistic
 

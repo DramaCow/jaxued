@@ -539,7 +539,17 @@ def main(config=None, project="JAXUED_TEST"):
         returns     = stats["eval_returns"]
         log_dict.update({"return/mean": returns.mean()})
         log_dict.update({"eval_ep_lengths/mean": stats['eval_ep_lengths'].mean()})
-        
+        losses = stats["losses"]
+
+        log_dict.update({
+            "total_loss": losses[0][-1],
+            "value_loss": losses[1][0][-1],
+            "policy_loss": losses[1][1][-1],
+            "entropy_loss": losses[1][2][-1],
+            "adv_loss": metrics["adv_loss"][-1],
+            "adv_entropy": metrics["adv_entropy"][-1]
+        })
+
         # level sampler
         log_dict.update(train_state_info["log"])
 
@@ -754,13 +764,13 @@ def main(config=None, project="JAXUED_TEST"):
         rng, _rng = jax.random.split(rng)
         scores, _ = learnability_fn(_rng, levels, config['level_buffer_capacity'], train_state)
 
-        jax.debug.print("top 10 scores: {}", jax.lax.top_k(scores, 10))
+        # jax.debug.print("top 10 scores: {}", jax.lax.top_k(scores, 10))
 
         rng, _rng = jax.random.split(rng)
         new_sampler = replace_fn(_rng, train_state, scores)
         sampler = {**new_sampler, "scores": new_score}
 
-        grad_fn = jax.grad(lambda y: y.T @ new_sampler["scores"] - 0.01 * jnp.log(y + 1e-6).T @ y)
+        grad_fn = jax.grad(lambda y: y.T @ new_sampler["scores"] - 0.05 * jnp.log(y + 1e-6).T @ y)
 
         grad, y_opt_state = y_ti_ada.update(grad_fn(new_score), y_opt_state)
         xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
@@ -774,6 +784,8 @@ def main(config=None, project="JAXUED_TEST"):
             "levels_played": init_env_state.env_state,
             "mean_returns": (info["returned_episode_returns"] * dones).sum() / dones.sum(),
             "grad_norms": grads.mean(),
+            "adv_loss": (lambda y: y.T @ new_sampler["scores"] - 0.01 * jnp.log(y + 1e-6).T @ y)(new_score),
+            "adv_entropy": -jnp.log(new_score + 1e-6).T @ new_score
         }
 
         train_state = train_state.replace(
@@ -925,7 +937,7 @@ if __name__=="__main__":
     parser.add_argument("--checkpoint_directory", type=str, default=None)
     parser.add_argument("--checkpoint_to_eval", type=int, default=-1)
     # === CHECKPOINTING ===
-    parser.add_argument("--checkpoint_save_interval", type=int, default=2)
+    parser.add_argument("--checkpoint_save_interval", type=int, default=0)
     parser.add_argument("--max_number_of_checkpoints", type=int, default=60)
     # === EVAL ===
     parser.add_argument("--eval_freq", type=int, default=10)
@@ -935,7 +947,7 @@ if __name__=="__main__":
     group.add_argument("--lr", type=float, default=2e-4)
     group.add_argument("--max_grad_norm", type=float, default=1.0)
     mut_group = group.add_mutually_exclusive_group()
-    mut_group.add_argument("--num_updates", type=int, default=500)
+    mut_group.add_argument("--num_updates", type=int, default=250)
     mut_group.add_argument("--num_env_steps", type=int, default=None)
     parser.add_argument("--num_steps", type=int, default=64)
     parser.add_argument("--outer_rollout_steps", type=int, default=64)
