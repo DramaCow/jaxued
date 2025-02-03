@@ -1,0 +1,7 @@
+flax==0.9.0
+optax==0.2.3
+tyro==0.8.10
+wandb==0.17.8
+jax[cuda12]==0.4.30
+torchvision
+chex

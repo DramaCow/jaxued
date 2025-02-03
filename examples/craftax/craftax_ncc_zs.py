@@ -749,7 +749,7 @@ def main(config=None, project="JAXUED_TEST"):
         # grad, y_opt_state = y_ti_ada.update(new_sampler["scores"], y_opt_state)
         # xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
         
-        grad_fn = jax.grad(lambda y: y.T @ new_sampler["scores"] - 0.005 * jnp.log(y + 1e-6).T @ y)
+        grad_fn = jax.grad(lambda y: y.T @ new_sampler["scores"] - 0.01 * jnp.log(y + 1e-6).T @ y)
 
         def adv_loop(carry, _):
             y, y_opt_state = carry

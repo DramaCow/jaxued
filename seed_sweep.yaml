@@ -1,0 +1,41 @@
+command:
+  - python3.11
+  - ${program}
+  - ${args}
+entity: flair
+method: grid
+metric:
+  goal: maximize
+  name: eval/returns_mean
+parameters:
+  seed:
+    values: 
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+  meta_lr:
+    values: 
+      - 1e-2
+  level_buffer_capacity:
+    values:
+      - 100
+  eval_num_attempts:
+    values:
+      - 100
+  num_eval_steps:
+    values:
+      - 10000
+  n_eval_levels:
+    values:
+      - 20
+program: examples/craftax/craftax_ncc.py
+project: NCC-CRAFTAX
+
+
