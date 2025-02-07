@@ -14,18 +14,9 @@ parameters:
       - 1
       - 2
       - 3
-      - 4
-      - 5
-      - 6
-      - 7
-      - 8
-      - 9
-  meta_lr:
-    values: 
-      - 5e-3
   level_buffer_capacity:
     values:
-      - 100
+      - 4000
   eval_num_attempts:
     values:
       - 100
@@ -35,7 +26,31 @@ parameters:
   n_eval_levels:
     values:
       - 20
-program: examples/craftax/craftax_ncc.py
+  num_minibatches:
+    values:
+      - 4
+      - 8
+      - 16
+  lr: 
+    values: 
+      - 1e-4
+      - 2e-4
+  meta_lr:
+    values:
+      - 5e-3
+      - 1e-3
+      - 5e-4
+      - 1e-4
+  meta_entr_coeff:
+    values:
+      - 0.001
+      - 0.005
+      - 0.01
+      - 0.05
+  env_name:
+    values:
+      - "Craftax-Classic-Symbolic-v1"
+program: examples/craftax/craftax_ncc_zs.py
 project: NCC-CRAFTAX
-name: crafax-ncc-non-optimistic
+name: craftax-ncc-maxmc
 

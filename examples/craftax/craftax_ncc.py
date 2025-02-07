@@ -486,7 +486,7 @@ def train_state_to_log_dict(train_state: TrainState, level_sampler: LevelSampler
             "level_sampler/max_score": sampler["scores"].max(),
             "level_sampler/weighted_score": (sampler["scores"] * level_sampler.level_weights(sampler)).sum(),
             "level_sampler/mean_score": (sampler["scores"] * idx).sum() / s,
-            "level_sampler/adv_entropy": -jnp.log(dist + 1e-6).T @ dist,
+            # "level_sampler/adv_entropy": -jnp.log(dist + 1e-6).T @ dist,
         },
         "info": {
             "num_dr_updates": train_state.num_dr_updates,
@@ -653,8 +653,8 @@ def main(config=None, project="JAXUED_TEST"):
                 init_obs,
                 init_env_state,
                 num_envs,
-                config["num_steps"] * config["outer_rollout_steps"],
-                config["gamma"],
+                500,
+                1.0,
                 True
             )
             return disc_return
@@ -722,7 +722,7 @@ def main(config=None, project="JAXUED_TEST"):
         tx = optax.chain(
                 optax.clip_by_global_norm(config["max_grad_norm"]),
                 ti_ada(vy0 = jnp.zeros(config["level_buffer_capacity"]), eta=linear_schedule),
-                optax.scale_by_optimistic_gradient()
+                # optax.scale_by_optimistic_gradient()
             )
         rng, _rng = jax.random.split(rng)
         init_levels = jax.vmap(sample_random_level)(jax.random.split(_rng, config["level_buffer_capacity"]))
@@ -770,7 +770,7 @@ def main(config=None, project="JAXUED_TEST"):
         new_sampler = replace_fn(_rng, train_state, scores)
         sampler = {**new_sampler, "scores": new_score}
 
-        grad_fn = jax.grad(lambda y: y.T @ new_sampler["scores"] - 0.05 * jnp.log(y + 1e-6).T @ y)
+        grad_fn = jax.grad(lambda y: y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.log(y + 1e-6).T @ y)
 
         grad, y_opt_state = y_ti_ada.update(grad_fn(new_score), y_opt_state)
         xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
@@ -784,7 +784,7 @@ def main(config=None, project="JAXUED_TEST"):
             "levels_played": init_env_state.env_state,
             "mean_returns": (info["returned_episode_returns"] * dones).sum() / dones.sum(),
             "grad_norms": grads.mean(),
-            "adv_loss": (lambda y: y.T @ new_sampler["scores"] - 0.01 * jnp.log(y + 1e-6).T @ y)(new_score),
+            "adv_loss": (lambda y: y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.log(y + 1e-6).T @ y)(new_score),
             "adv_entropy": -jnp.log(new_score + 1e-6).T @ new_score
         }
 
@@ -961,6 +961,7 @@ if __name__=="__main__":
     group.add_argument("--critic_coeff", type=float, default=0.5)
     group.add_argument("--meta_lr", type=float, default=1e-2)
     group.add_argument("--meta_trunc", type=float, default=1e-5)
+    group.add_argument("--meta_entr_coeff", type=float, default = 0.005)
     # === PLR ===
     group.add_argument("--score_function", type=str, default="MaxMC", choices=["MaxMC", "pvl"])
     group.add_argument("--exploratory_grad_updates", action=argparse.BooleanOptionalAction, default=True)
