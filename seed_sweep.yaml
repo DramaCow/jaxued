@@ -3,7 +3,7 @@ command:
   - ${program}
   - ${args}
 entity: flair
-method: grid
+method: random
 metric:
   goal: maximize
   name: eval/returns_mean
@@ -53,8 +53,8 @@ parameters:
       - 0.05
   static_buffer:
     values:
-      True
-program: examples/craftax/craftax_ncc_zs.py
+      - True
+program: examples/craftax/craftax_ncc.py
 project: NCC-CRAFTAX
 name: craftax-ncc-static
 
