@@ -16,6 +16,9 @@ parameters:
       - 3
   level_buffer_capacity:
     values:
+      - 100
+      - 500
+      - 1000
       - 4000
   eval_num_attempts:
     values:
@@ -28,6 +31,7 @@ parameters:
       - 20
   num_minibatches:
     values:
+      - 2
       - 4
       - 8
       - 16
@@ -47,10 +51,10 @@ parameters:
       - 0.005
       - 0.01
       - 0.05
-  env_name:
+  static_buffer:
     values:
-      - "Craftax-Classic-Symbolic-v1"
+      True
 program: examples/craftax/craftax_ncc_zs.py
 project: NCC-CRAFTAX
-name: craftax-ncc-maxmc
+name: craftax-ncc-static
 

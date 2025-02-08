@@ -709,7 +709,7 @@ def main(config=None, project="JAXUED_TEST"):
         tx = optax.chain(
                 optax.clip_by_global_norm(config["max_grad_norm"]),
                 ti_ada(vy0 = jnp.zeros(config["level_buffer_capacity"]), eta=linear_schedule),
-                # optax.scale_by_learning_rate(1.0)
+                optax.scale_by_optimistic_gradient()
             )
         rng, _rng = jax.random.split(rng)
         init_levels = jax.vmap(sample_random_level)(jax.random.split(_rng, config["level_buffer_capacity"]))

@@ -767,7 +767,7 @@ def main(config=None, project="JAXUED_TEST"):
         # jax.debug.print("top 10 scores: {}", jax.lax.top_k(scores, 10))
 
         rng, _rng = jax.random.split(rng)
-        new_sampler = replace_fn(_rng, train_state, scores)
+        new_sampler = {**train_state.sampler, "scores": scores} if config["static_buffer"] else replace_fn(_rng, train_state, scores)
         sampler = {**new_sampler, "scores": new_score}
 
         grad_fn = jax.grad(lambda y: y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.log(y + 1e-6).T @ y)
@@ -973,6 +973,7 @@ if __name__=="__main__":
     group.add_argument("--minimum_fill_ratio", type=float, default=0.5)
     group.add_argument("--prioritization", type=str, default="rank", choices=["rank", "topk"])
     group.add_argument("--buffer_duplicate_check", action=argparse.BooleanOptionalAction, default=True)
+    group.add_argument("--static_buffer", type=bool, default=False)
     # === ACCEL ===
     parser.add_argument("--use_accel",                          action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--num_edits",                          type=int, default=30)
