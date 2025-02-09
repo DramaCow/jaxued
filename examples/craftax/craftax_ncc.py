@@ -745,7 +745,7 @@ def main(config=None, project="JAXUED_TEST"):
         
         rng, train_state, xhat, prev_grad, y_opt_state = carry
 
-        new_score = projection_simplex_truncated(xhat + prev_grad, config["meta_trunc"]) # if config["META_OPTIMISTIC"] else xhat
+        new_score = jax.nn.softmax(xhat) # projection_simplex_truncated(xhat + prev_grad, config["meta_trunc"]) # if config["META_OPTIMISTIC"] else xhat
         sampler = {**train_state.sampler, "scores": new_score}
         # Collect trajectories on replay levels
         rng, rng_levels, rng_reset = jax.random.split(rng, 3)
@@ -770,10 +770,14 @@ def main(config=None, project="JAXUED_TEST"):
         new_sampler = {**train_state.sampler, "scores": scores} if config["static_buffer"] else replace_fn(_rng, train_state, scores)
         sampler = {**new_sampler, "scores": new_score}
 
-        grad_fn = jax.grad(lambda y: y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.log(y + 1e-6).T @ y)
+        # grad_fn = jax.grad(lambda y: y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.log(y + 1e-6).T @ y)
 
-        grad, y_opt_state = y_ti_ada.update(grad_fn(new_score), y_opt_state)
-        xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
+        def grad_fn(x):
+            y = jax.nn.softmax(x)
+            return y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.linalg.norm(x)
+            
+        grad, y_opt_state = y_ti_ada.update(jax.grad(grad_fn)(new_score), y_opt_state)
+        xhat += grad # projection_simplex_truncated(xhat + grad, config["meta_trunc"])
 
         metrics = {
             "losses": jax.tree_util.tree_map(lambda x: x.mean(), losses),
@@ -784,7 +788,7 @@ def main(config=None, project="JAXUED_TEST"):
             "levels_played": init_env_state.env_state,
             "mean_returns": (info["returned_episode_returns"] * dones).sum() / dones.sum(),
             "grad_norms": grads.mean(),
-            "adv_loss": (lambda y: y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.log(y + 1e-6).T @ y)(new_score),
+            "adv_loss": grad_fn(new_score),
             "adv_entropy": -jnp.log(new_score + 1e-6).T @ new_score
         }
 
