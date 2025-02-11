@@ -486,7 +486,7 @@ def train_state_to_log_dict(train_state: TrainState, level_sampler: LevelSampler
             "level_sampler/max_score": sampler["scores"].max(),
             "level_sampler/weighted_score": (sampler["scores"] * level_sampler.level_weights(sampler)).sum(),
             "level_sampler/mean_score": (sampler["scores"] * idx).sum() / s,
-            "level_sampler/adv_entropy": -jnp.log(dist + 1e-6).T @ dist,
+            # "level_sampler/adv_entropy": -jnp.log(dist + 1e-6).T @ dist,
         },
         "info": {
             "num_dr_updates": train_state.num_dr_updates,
@@ -498,7 +498,7 @@ def train_state_to_log_dict(train_state: TrainState, level_sampler: LevelSampler
 def compute_score(config: dict, dones: chex.Array, values: chex.Array, max_returns: chex.Array, advantages: chex.Array) -> chex.Array:
     # Computes the score for each level
     if config['score_function'] == "MaxMC":
-        return max_mc(dones, values, max_returns)
+        return max_mc(dones, values, max_returns, 0)
     elif config['score_function'] == "pvl":
         return positive_value_loss(dones, advantages)
     else:
@@ -567,7 +567,6 @@ def main(config=None, project="JAXUED_TEST"):
         # log_dict.update({f"animations/animation": wandb.Video(frames, fps=4)})
         
         wandb.log(log_dict)
-
     def sample_random_level(rng):
         if config['accel_mutation'] == 'noise':
             rng, _rng1, _rng2, _rng3, _rng4 = jax.random.split(rng, 5)
@@ -663,7 +662,6 @@ def main(config=None, project="JAXUED_TEST"):
         scores = compute_score(config, dones, values, max_returns, advantages)
 
         return scores, max_returns
-        
 
     def replace_fn(rng, train_state, old_level_scores):
         # NOTE: scores here are the actual UED scores, NOT the probabilities induced by the projection
@@ -709,7 +707,7 @@ def main(config=None, project="JAXUED_TEST"):
         tx = optax.chain(
                 optax.clip_by_global_norm(config["max_grad_norm"]),
                 ti_ada(vy0 = jnp.zeros(config["level_buffer_capacity"]), eta=linear_schedule),
-                optax.scale_by_optimistic_gradient()
+                # optax.scale_by_optimistic_gradient()
             )
         rng, _rng = jax.random.split(rng)
         init_levels = jax.vmap(sample_random_level)(jax.random.split(_rng, config["level_buffer_capacity"]))
@@ -732,7 +730,7 @@ def main(config=None, project="JAXUED_TEST"):
         
         rng, train_state, xhat, prev_grad, y_opt_state = carry
 
-        new_score = projection_simplex_truncated(xhat + prev_grad, config["meta_trunc"]) # if config["META_OPTIMISTIC"] else xhat
+        new_score = jax.nn.softmax(xhat) # projection_simplex_truncated(xhat + prev_grad, config["meta_trunc"]) # if config["META_OPTIMISTIC"] else xhat
         sampler = {**train_state.sampler, "scores": new_score}
         # Collect trajectories on replay levels
         rng, rng_levels, rng_reset = jax.random.split(rng, 3)
@@ -744,27 +742,35 @@ def main(config=None, project="JAXUED_TEST"):
             (obs, actions, rewards, dones, log_probs, values, info, advantages, targets, losses, grads)
             ) = sample_trajectories_and_learn(env, env_params, config,
                                 rng, train_state, init_obs, init_env_state, update_grad=True)
-        jax.debug.print("{}",  (info["returned_episode_returns"] * dones).sum() / dones.sum())
+        # jax.debug.print("{}",  (info["returned_episode_returns"] * dones).sum() / dones.sum())
         
         # Update the level sampler
         levels = sampler["levels"]
         rng, _rng = jax.random.split(rng)
         scores, _ = learnability_fn(_rng, levels, config['level_buffer_capacity'], train_state)
 
-        # jax.debug.print("top 10 scores: {}", jax.lax.top_k(scores, 10))
+        # jax.debug.print("{}, {}", scores, scores.min())
 
         rng, _rng = jax.random.split(rng)
-        new_sampler = replace_fn(_rng, train_state, scores)
+        new_sampler = {**train_state.sampler, "scores": scores} if config["static_buffer"] else replace_fn(_rng, train_state, scores)
         sampler = {**new_sampler, "scores": new_score}
 
-        # grad, y_opt_state = y_ti_ada.update(new_sampler["scores"], y_opt_state)
-        # xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
-        
-        grad_fn = jax.grad(lambda y: 0.01 * y.T @ new_sampler["scores"] - 0.1 * jnp.log(y + 1e-6).T @ y)
+        # grad_fn = jax.grad(lambda y: y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.log(y + 1e-6).T @ y)
 
-        grad, y_opt_state = y_ti_ada.update(grad_fn(new_score), y_opt_state)
-        xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
+        def grad_fn(x):
+            y = jax.nn.softmax(x)
+            return y.T @ new_sampler["scores"] #- config["meta_entr_coeff"] * jnp.square(optax.safe_norm(x, 0, 2))
 
+        # jax.debug.print("grad:         {}", jax.grad(grad_fn)(xhat))
+        # jax.debug.print("grad w/o reg: {}", jax.grad(lambda x: jax.nn.softmax(x).T @ new_sampler["scores"])(xhat))
+        # jax.debug.print("grad diff:    {}", jax.grad(lambda x: jax.nn.softmax(x).T @ new_sampler["scores"])(xhat) - jax.grad(grad_fn)(xhat))
+        # jax.debug.print("dist:         {}", jax.nn.softmax(xhat))
+        # jax.debug.print("xhat:         {}", xhat)
+        jax.debug.print("entropy:      {}", -jax.nn.softmax(xhat).T @ jnp.log(jax.nn.softmax(xhat) + 1e-6))
+        # jax.debug.print("loss w/o reg: {}", jax.nn.softmax(xhat).T @ new_sampler["scores"] )
+        # jax.debug.print("norm:         {}", jnp.square(optax.safe_norm(xhat, 0, 2)))
+        grad, y_opt_state = y_ti_ada.update(jax.grad(grad_fn)(xhat), y_opt_state)
+        xhat += grad # projection_simplex_truncated(xhat + grad, config["meta_trunc"])
 
         metrics = {
             "losses": jax.tree_util.tree_map(lambda x: x.mean(), losses),
@@ -775,7 +781,7 @@ def main(config=None, project="JAXUED_TEST"):
             "levels_played": init_env_state.env_state,
             "mean_returns": (info["returned_episode_returns"] * dones).sum() / dones.sum(),
             "grad_norms": grads.mean(),
-            "adv_loss": (lambda y: y.T @ new_sampler["scores"] - 0.001 * jnp.log(y + 1e-6).T @ y)(new_score),
+            "adv_loss": grad_fn(xhat - grad),
             "adv_entropy": -jnp.log(new_score + 1e-6).T @ new_score
         }
 
@@ -825,14 +831,14 @@ def main(config=None, project="JAXUED_TEST"):
 
         # Eval
         rng, rng_eval = jax.random.split(rng)
-        _, cum_rewards, episode_lengths = jax.vmap(eval, (0, None, None))(jax.random.split(rng_eval, config["eval_num_attempts"]), train_state, False)
+        states, cum_rewards, episode_lengths = jax.vmap(eval, (0, None, None))(jax.random.split(rng_eval, config["eval_num_attempts"]), train_state, False)
         
         # Collect Metrics
         eval_returns = cum_rewards.mean(axis=0) # (num_eval_levels,)
         
         # just grab the first run
-        # states, episode_lengths = jax.tree_util.tree_map(lambda x: x[0], (states, episode_lengths)) # (num_steps, num_eval_levels, ...), (num_eval_levels,)
-        # # And one attempt
+        states, episode_lengths = jax.tree_util.tree_map(lambda x: x[0], (states, episode_lengths)) # (num_steps, num_eval_levels, ...), (num_eval_levels,)
+        # And one attempt
         # states = jax.tree_util.tree_map(lambda x: x[:, :1], states)
         episode_lengths = episode_lengths[:1]
         # images = jax.vmap(jax.vmap(render_craftax_pixels, (0, None)), (0, None))(states.env_state.env_state, BLOCK_PIXEL_SIZE_IMG) # (num_steps, num_eval_levels, ...)
@@ -849,8 +855,8 @@ def main(config=None, project="JAXUED_TEST"):
         metrics["replay_levels"] = None # jax.vmap(render_craftax_pixels, (0, None))(jax.tree_util.tree_map(lambda x: x[:max_num_images], train_state.replay_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
         metrics["mutation_levels"] = None # jax.vmap(render_craftax_pixels, (0, None))(jax.tree_util.tree_map(lambda x: x[:max_num_images], train_state.mutation_last_level_batch), BLOCK_PIXEL_SIZE_IMG)
         
-        highest_scoring_level = level_sampler.get_levels(train_state.sampler, train_state.sampler["scores"].argmax())
-        highest_weighted_level = level_sampler.get_levels(train_state.sampler, level_sampler.level_weights(train_state.sampler).argmax())
+        # highest_scoring_level = level_sampler.get_levels(train_state.sampler, train_state.sampler["scores"].argmax())
+        # highest_weighted_level = level_sampler.get_levels(train_state.sampler, level_sampler.level_weights(train_state.sampler).argmax())
         
         metrics["highest_scoring_level"] = None # render_craftax_pixels(highest_scoring_level, BLOCK_PIXEL_SIZE_IMG)
         metrics["highest_weighted_level"] = None # render_craftax_pixels(highest_weighted_level, BLOCK_PIXEL_SIZE_IMG)
@@ -895,8 +901,9 @@ def main(config=None, project="JAXUED_TEST"):
     y_ti_ada = scale_y_by_ti_ada(eta=config["meta_lr"])
     y_opt_state = y_ti_ada.init(jnp.zeros_like(train_state.sampler["scores"]))
         
-    xhat = grad = jnp.zeros_like(train_state.sampler["scores"])
-    runner_state = (rng_train, train_state, xhat, grad, y_opt_state)
+    grad = jnp.zeros_like(train_state.sampler["scores"])
+    rng, _rng = jax.random.split(rng)
+    xhat = jax.random.uniform(rng, grad.shape, minval=-1)
 
     runner_state = (rng, train_state, xhat, grad, y_opt_state)
     
@@ -945,13 +952,14 @@ if __name__=="__main__":
     group.add_argument("--num_train_envs", type=int, default=1024)
     group.add_argument("--num_minibatches", type=int, default=8)
     group.add_argument("--gamma", type=float, default=0.99)
-    group.add_argument("--epoch_ppo", type=int, default=5)
+    group.add_argument("--epoch_ppo", type=int, default=4)
     group.add_argument("--clip_eps", type=float, default=0.2)
     group.add_argument("--gae_lambda", type=float, default=0.8)
     group.add_argument("--entropy_coeff", type=float, default=0.01)
     group.add_argument("--critic_coeff", type=float, default=0.5)
     group.add_argument("--meta_lr", type=float, default=1e-2)
     group.add_argument("--meta_trunc", type=float, default=1e-5)
+    group.add_argument("--meta_entr_coeff", type=float, default = 0.005)
     # === PLR ===
     group.add_argument("--score_function", type=str, default="MaxMC", choices=["MaxMC", "pvl"])
     group.add_argument("--exploratory_grad_updates", action=argparse.BooleanOptionalAction, default=True)
@@ -963,6 +971,7 @@ if __name__=="__main__":
     group.add_argument("--minimum_fill_ratio", type=float, default=0.5)
     group.add_argument("--prioritization", type=str, default="rank", choices=["rank", "topk"])
     group.add_argument("--buffer_duplicate_check", action=argparse.BooleanOptionalAction, default=True)
+    group.add_argument("--static_buffer", type=bool, default=False)
     # === ACCEL ===
     parser.add_argument("--use_accel",                          action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--num_edits",                          type=int, default=30)
