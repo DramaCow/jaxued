@@ -7,54 +7,52 @@ method: grid
 metric:
   goal: maximize
   name: eval/returns_mean
+name: craftax-ncc-static-3
 parameters:
+  eval_num_attempts:
+    values:
+      - 100
+  gae_lambda:
+    values:
+      - 0.95
+  gamma:
+    values:
+      - 0.995
+  level_buffer_capacity:
+    values:
+      - 4000
+  lr:
+    values:
+      - 0.0001
+  meta_entr_coeff:
+    values:
+      - 0.01
+  meta_lr:
+    values:
+      - 0.001
+  n_eval_levels:
+    values:
+      - 20
+  num_eval_steps:
+    values:
+      - 10000
+  num_minibatches:
+    values:
+      - 2
   seed:
-    values: 
+    values:
       - 0
       - 1
       - 2
       - 3
-  level_buffer_capacity:
-    values:
-      - 100
-      - 500
-      - 1000
-      - 4000
-  eval_num_attempts:
-    values:
-      - 100
-  num_eval_steps:
-    values:
-      - 10000
-  n_eval_levels:
-    values:
-      - 20
-  num_minibatches:
-    values:
-      - 2
       - 4
+      - 5
+      - 6
+      - 7
       - 8
-      - 16
-  lr: 
-    values: 
-      - 1e-4
-      - 2e-4
-  meta_lr:
-    values:
-      - 5e-3
-      - 1e-3
-      - 5e-4
-      - 1e-4
-  meta_entr_coeff:
-    values:
-      - 0.001
-      - 0.005
-      - 0.01
-      - 0.05
+      - 9
   static_buffer:
     values:
-      True
-program: examples/craftax/craftax_ncc_zs.py
+      - true
+program: examples/craftax/craftax_ncc.py
 project: NCC-CRAFTAX
-name: craftax-ncc-static
-
