@@ -26,10 +26,13 @@ parameters:
       - 0.0001
   meta_entr_coeff:
     values:
-      - 0.01
+      - 0.00000001
   meta_lr:
     values:
-      - 0.001
+      - 2.5
+  meta_mix:
+    values: 
+      - 0.5
   n_eval_levels:
     values:
       - 20

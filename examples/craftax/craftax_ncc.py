@@ -721,8 +721,8 @@ def main(config=None, project="JAXUED_TEST"):
         network_params = network.init(rng, obs)
         tx = optax.chain(
                 optax.clip_by_global_norm(config["max_grad_norm"]),
-                # ti_ada(vy0 = jnp.zeros(config["level_buffer_capacity"]), eta=linear_schedule),
-                optax.adam(learning_rate = linear_schedule)
+                ti_ada(vy0 = jnp.zeros(config["level_buffer_capacity"]), eta=linear_schedule),
+                # optax.adam(learning_rate = linear_schedule)
                 # optax.scale_by_optimistic_gradient()
             )
         rng, _rng = jax.random.split(rng)
@@ -914,10 +914,11 @@ def main(config=None, project="JAXUED_TEST"):
     train_state = create_train_state(rng_init)
 
     # Set up y optimizer state
-    y_ti_ada = optax.chain(
-        optax.scale_by_adam(),
-        optax.scale(config["meta_lr"])
-    )
+    # y_ti_ada = optax.chain(
+    #     optax.scale_by_adam(),
+    #     optax.scale(config["meta_lr"])
+    # )    
+    y_ti_ada = scale_y_by_ti_ada(eta=config["meta_lr"])
     y_opt_state = y_ti_ada.init(jnp.zeros_like(train_state.sampler["scores"]))
         
     grad = jnp.zeros_like(train_state.sampler["scores"])
@@ -979,7 +980,7 @@ if __name__=="__main__":
     group.add_argument("--meta_lr", type=float, default=1e-2)
     group.add_argument("--meta_trunc", type=float, default=1e-5)
     group.add_argument("--meta_entr_coeff", type=float, default = 0.005)
-    group.add_argument("--meta_mix", type=float, default = 0.05)
+    group.add_argument("--meta_mix", type=float, default = 0.5)
     # === PLR ===
     group.add_argument("--score_function", type=str, default="MaxMC", choices=["MaxMC", "pvl"])
     group.add_argument("--exploratory_grad_updates", action=argparse.BooleanOptionalAction, default=True)
