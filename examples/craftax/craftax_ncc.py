@@ -742,11 +742,11 @@ def main(config=None, project="JAXUED_TEST"):
             mutation_last_level_batch=init_levels,
         )
 
-    def train_step(carry: Tuple[chex.PRNGKey, TrainState], _):
+    def train_step(carry: Tuple[chex.PRNGKey, TrainState], t):
         
         rng, train_state, xhat, prev_grad, y_opt_state = carry
 
-        new_score = jax.nn.softmax(xhat) * (1 - config["meta_mix"]) + config["meta_mix"] / len(xhat)  # projection_simplex_truncated(xhat + prev_grad, config["meta_trunc"]) # if config["META_OPTIMISTIC"] else xhat
+        new_score = xhat # projection_simplex_truncated(xhat + prev_grad, config["meta_trunc"]) # if config["META_OPTIMISTIC"] else xhat
         sampler = {**train_state.sampler, "scores": new_score}
         # Collect trajectories on replay levels
         rng, rng_levels, rng_reset = jax.random.split(rng, 3)
@@ -771,11 +771,13 @@ def main(config=None, project="JAXUED_TEST"):
         new_sampler = {**train_state.sampler, "scores": scores} if config["static_buffer"] else replace_fn(_rng, train_state, scores)
         sampler = {**new_sampler, "scores": new_score}
 
-        # grad_fn = jax.grad(lambda y: y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.log(y + 1e-6).T @ y)
+        meta_reg = config["meta_entr_coeff"] * (1 / jax.lax.cbrt(t + 1))
 
-        def grad_fn(x):
-            y = jax.nn.softmax(x) * (1 - config["meta_mix"]) + config["meta_mix"] / len(x)
-            return y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.square(optax.safe_norm(x, 0, 2))
+        grad_fn = lambda y: y.T @ new_sampler["scores"] - meta_reg * jnp.log(y + 1e-6).T @ y
+
+        # def grad_fn(x):
+        #     y = jax.nn.softmax(x) * (1 - config["meta_mix"]) + config["meta_mix"] / len(x)
+        #     return y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.square(optax.safe_norm(x, 0, 2))
 
         # jax.debug.print("grad:         {}", jax.grad(grad_fn)(xhat))
         # jax.debug.print("grad w/o reg: {}", jax.grad(lambda x: jax.nn.softmax(x).T @ new_sampler["scores"])(xhat))
@@ -786,7 +788,7 @@ def main(config=None, project="JAXUED_TEST"):
         # jax.debug.print("loss w/o reg: {}", jax.nn.softmax(xhat).T @ new_sampler["scores"] )
         # jax.debug.print("norm:         {}", jnp.square(optax.safe_norm(xhat, 0, 2)))
         grad, y_opt_state = y_ti_ada.update(jax.grad(grad_fn)(xhat), y_opt_state)
-        xhat = xhat + grad # projection_simplex_truncated(xhat + grad, config["meta_trunc"])
+        xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
 
         metrics = {
             "losses": jax.tree_util.tree_map(lambda x: x.mean(), losses),
@@ -797,7 +799,7 @@ def main(config=None, project="JAXUED_TEST"):
             "levels_played": init_env_state.env_state,
             "mean_returns": (info["returned_episode_returns"] * dones).sum() / dones.sum(),
             "grad_norms": grads.mean(),
-            "adv_loss": grad_fn(xhat - grad),
+            "adv_loss": grad_fn(xhat),
             "adv_entropy": -jnp.log(new_score + 1e-6).T @ new_score
         }
 
@@ -837,13 +839,13 @@ def main(config=None, project="JAXUED_TEST"):
         return states, cum_rewards, episode_lengths # (num_steps, num_eval_levels, ...), (num_eval_levels,), (num_eval_levels,)
     
     @jax.jit
-    def train_and_eval_step(runner_state, _):
+    def train_and_eval_step(runner_state, t):
         """
             This function runs the train_step for a certain number of iterations, and then evaluates the policy.
             It returns the updated train state, and a dictionary of metrics.
         """
         # Train
-        (rng, train_state, xhat, prev_grad, y_opt_state), metrics = jax.lax.scan(train_step, runner_state, None, config["eval_freq"])
+        (rng, train_state, xhat, prev_grad, y_opt_state), metrics = jax.lax.scan(train_step, runner_state, jnp.arange(config["eval_freq"], dtype=float) + t)
 
         # Eval
         rng, rng_eval = jax.random.split(rng)
@@ -923,7 +925,7 @@ def main(config=None, project="JAXUED_TEST"):
         
     grad = jnp.zeros_like(train_state.sampler["scores"])
     rng, _rng = jax.random.split(rng)
-    xhat = jax.random.truncated_normal(_rng, -0.5, 0.5, grad.shape)
+    xhat = jnp.full_like(grad, 1 / len(grad))
 
     runner_state = (rng, train_state, xhat, grad, y_opt_state)
     
@@ -932,7 +934,7 @@ def main(config=None, project="JAXUED_TEST"):
         checkpoint_manager = setup_checkpointing(config, train_state, env, env_params)
     for eval_step in range(config["num_updates"] // config["eval_freq"]):
         start_time = time.time()
-        runner_state, metrics = train_and_eval_step(runner_state, None)
+        runner_state, metrics = train_and_eval_step(runner_state, eval_step * config["eval_freq"])
         curr_time = time.time()
         metrics['time_delta'] = curr_time - start_time
         log_eval(metrics, train_state_to_log_dict(runner_state[1], level_sampler))
