@@ -1,0 +1,34 @@
+command:
+  - python3.11
+  - ${program}
+  - ${args}
+entity: flair
+method: grid
+metric:
+  goal: maximize
+  name: eval/returns_mean
+name: craftax-plr
+parameters:
+  # n_eval_levels:
+  #   values:
+  #     - 20
+  # num_eval_steps:
+  #   values:
+  #     - 10000
+  # eval_num_attempts:
+  #   values:
+  #     - 100
+  seed:
+    values:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+program: examples/craftax/craftax_plr.py
+project: NCC-CRAFTAX

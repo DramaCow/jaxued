@@ -83,14 +83,14 @@ class LevelSampler:
             Sampler: The initialized sampler object
         """
         sampler = {
-            "levels": jax.tree_map(lambda x: jnp.array([x]).repeat(self.capacity, axis=0), pholder_level),
+            "levels": jax.tree_util.tree_map(lambda x: jnp.array([x]).repeat(self.capacity, axis=0), pholder_level),
             "scores": jnp.full(self.capacity, -jnp.inf, dtype=jnp.float32),
             "timestamps": jnp.zeros(self.capacity, dtype=jnp.int32),
             "size": 0,
             "episode_count": 0,
         }
         if pholder_level_extra is not None:
-            sampler["levels_extra"] = jax.tree_map(lambda x: jnp.array([x]).repeat(self.capacity, axis=0), pholder_level_extra)
+            sampler["levels_extra"] = jax.tree_util.tree_map(lambda x: jnp.array([x]).repeat(self.capacity, axis=0), pholder_level_extra)
         return sampler
         
     def sample_replay_decision(self, sampler: Sampler, rng: chex.PRNGKey) -> bool:
@@ -126,7 +126,7 @@ class LevelSampler:
             "timestamps": sampler["timestamps"].at[idx].set(new_episode_count),
             "episode_count": new_episode_count,
         }
-        return sampler, (idx, jax.tree_map(lambda x: x[idx], sampler["levels"]))
+        return sampler, (idx, jax.tree_util.tree_map(lambda x: x[idx], sampler["levels"]))
     
     def sample_replay_levels(self, sampler: Sampler, rng: chex.PRNGKey, num: int) -> Tuple[Sampler, Tuple[chex.Array, Level]]:
         """
@@ -203,7 +203,7 @@ class LevelSampler:
         Returns:
             int: index or -1 if not found.
         """
-        eq_tree = jax.tree_map(lambda X, y: (X == y).reshape(self.capacity, -1).all(axis=-1), sampler["levels"], level)
+        eq_tree = jax.tree_util.tree_map(lambda X, y: (X == y).reshape(self.capacity, -1).all(axis=-1), sampler["levels"], level)
         eq_tree_flat, _ = jax.tree_util.tree_flatten(eq_tree)
         eq_mask = jnp.array(eq_tree_flat).all(axis=0) & (jnp.arange(self.capacity) < sampler["size"])
         return jax.lax.select(eq_mask.any(), eq_mask.argmax(), -1)
@@ -219,7 +219,7 @@ class LevelSampler:
         Returns:
             Level: 
         """
-        return jax.tree_map(lambda x: x[level_idx], sampler["levels"])
+        return jax.tree_util.tree_map(lambda x: x[level_idx], sampler["levels"])
     
     def get_levels_extra(self, sampler: Sampler, level_idx: int) -> dict:
         """
@@ -232,7 +232,7 @@ class LevelSampler:
         Returns:
             dict: 
         """
-        return jax.tree_map(lambda x: x[level_idx], sampler["levels_extra"])
+        return jax.tree_util.tree_map(lambda x: x[level_idx], sampler["levels_extra"])
     
     def update(self, sampler: Sampler, idx: int, score: float, level_extra: dict=None) -> Sampler:
         """
@@ -252,7 +252,7 @@ class LevelSampler:
             "scores": sampler["scores"].at[idx].set(score),
         }
         if level_extra is not None:
-            new_sampler["levels_extra"] = jax.tree_map(lambda x, y: x.at[idx].set(y), new_sampler["levels_extra"], level_extra)
+            new_sampler["levels_extra"] = jax.tree_util.tree_map(lambda x, y: x.at[idx].set(y), new_sampler["levels_extra"], level_extra)
         return new_sampler
     
     def update_batch(self, sampler: Sampler, level_inds: chex.Array, scores: chex.Array, level_extras: dict=None) -> Sampler:
@@ -379,13 +379,13 @@ class LevelSampler:
         def _replace():
             new_sampler = {
                 **sampler,
-                "levels": jax.tree_map(lambda x, y: x.at[idx].set(y), sampler["levels"], level),
+                "levels": jax.tree_util.tree_map(lambda x, y: x.at[idx].set(y), sampler["levels"], level),
                 "scores": sampler["scores"].at[idx].set(score),
                 "timestamps": sampler["timestamps"].at[idx].set(sampler["episode_count"] + 1),
                 "size": jnp.minimum(sampler["size"] + 1, self.capacity),
             }
             if level_extra is not None:
-                new_sampler["levels_extra"] = jax.tree_map(lambda x, y: x.at[idx].set(y), new_sampler["levels_extra"], level_extra)
+                new_sampler["levels_extra"] = jax.tree_util.tree_map(lambda x, y: x.at[idx].set(y), new_sampler["levels_extra"], level_extra)
             return new_sampler
             
         new_sampler = jax.lax.cond(replace_cond, _replace, lambda: sampler)

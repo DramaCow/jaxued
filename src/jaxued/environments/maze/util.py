@@ -179,11 +179,11 @@ def make_level_mutator_minimax(max_num_edits: int) -> Callable[[chex.PRNGKey, Le
 
                 is_flip_wall = jnp.equal(mutation, Mutations.FLIP_WALL.value)
                 mutated_state = flip_wall(arng, state)
-                next_state = jax.tree_map(lambda x,y: jax.lax.select(is_flip_wall, x, y), mutated_state, state)
+                next_state = jax.tree_util.tree_map(lambda x,y: jax.lax.select(is_flip_wall, x, y), mutated_state, state)
 
                 is_move_goal = jnp.equal(mutation, Mutations.MOVE_GOAL.value)
                 mutated_state = move_goal(brng, state)
-                next_state = jax.tree_map(lambda x,y: jax.lax.select(is_move_goal, x, y), mutated_state, next_state)
+                next_state = jax.tree_util.tree_map(lambda x,y: jax.lax.select(is_move_goal, x, y), mutated_state, next_state)
                 
                 return next_state
                 

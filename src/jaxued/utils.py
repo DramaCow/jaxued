@@ -10,34 +10,34 @@ def accumulate_rollout_stats(dones, metrics, *, time_average):
         sum_val, max_val, accum_val, step_count, episode_count = carry
         done, step_val = input
         
-        accum_val = jax.tree_map(lambda x, y: x + y, accum_val, step_val)
+        accum_val = jax.tree_util.tree_map(lambda x, y: x + y, accum_val, step_val)
         step_count += 1
         
         if time_average:
-            # val = jax.tree_map(lambda x, b: jax.lax.select(b, x / step_count, x), accum_val, time_average)
-            val = jax.tree_map(lambda x: x / step_count, accum_val)
+            # val = jax.tree_util.tree_map(lambda x, b: jax.lax.select(b, x / step_count, x), accum_val, time_average)
+            val = jax.tree_util.tree_map(lambda x: x / step_count, accum_val)
         else:
             val = accum_val
         
-        sum_val = jax.tree_map(lambda x, y: x + done * y, sum_val, val)
-        max_val = jax.tree_map(lambda x, y: (1 - done) * x + done * jnp.maximum(x, y), max_val, val)
+        sum_val = jax.tree_util.tree_map(lambda x, y: x + done * y, sum_val, val)
+        max_val = jax.tree_util.tree_map(lambda x, y: (1 - done) * x + done * jnp.maximum(x, y), max_val, val)
         
         episode_count += done
         
-        accum_val = jax.tree_map(lambda x: (1 - done) * x, accum_val)
+        accum_val = jax.tree_util.tree_map(lambda x: (1 - done) * x, accum_val)
         step_count = (1 - done) * step_count
         
         return (sum_val, max_val, accum_val, step_count, episode_count), None
     
     batch_size = dones.shape[1]
-    zeros = jax.tree_map(lambda x: jnp.zeros_like(x[0]), metrics)
+    zeros = jax.tree_util.tree_map(lambda x: jnp.zeros_like(x[0]), metrics)
     (sum_val, max_val, _, _, episode_count), _ = jax.lax.scan(
         iter,
         (zeros, zeros, zeros, jnp.zeros(batch_size, dtype=jnp.uint32), jnp.zeros(batch_size, dtype=jnp.uint32)),
         (dones, metrics),
     )
     
-    mean_val = jax.tree_map(lambda x: x / jnp.maximum(episode_count, 1), sum_val)
+    mean_val = jax.tree_util.tree_map(lambda x: x / jnp.maximum(episode_count, 1), sum_val)
     
     return mean_val, max_val, episode_count
 

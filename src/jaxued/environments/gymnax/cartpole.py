@@ -135,7 +135,7 @@ def make_eval_levels_and_names():
 
     levels = jax.vmap(make_level)(arrs)
     default = Level()
-    levels = jax.tree_map(lambda x, new: jnp.concatenate([x, jnp.array(new)[None]], axis=0), levels, default)
+    levels = jax.tree_util.tree_map(lambda x, new: jnp.concatenate([x, jnp.array(new)[None]], axis=0), levels, default)
     return levels, [f"length_{i:<2}_mass_{j:<2}" for i, j in arrs] + ['default']
     
 
