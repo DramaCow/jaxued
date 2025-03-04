@@ -663,6 +663,7 @@ def main(config=None, project="JAXUED_TEST"):
 
         return scores, max_returns
 
+
     def replace_fn(rng, train_state, old_level_scores):
         # NOTE: scores here are the actual UED scores, NOT the probabilities induced by the projection
 
@@ -707,6 +708,7 @@ def main(config=None, project="JAXUED_TEST"):
         tx = optax.chain(
                 optax.clip_by_global_norm(config["max_grad_norm"]),
                 ti_ada(vy0 = jnp.zeros(config["level_buffer_capacity"]), eta=linear_schedule),
+                # optax.adam(learning_rate = linear_schedule)
                 # optax.scale_by_optimistic_gradient()
             )
         rng, _rng = jax.random.split(rng)
@@ -726,11 +728,27 @@ def main(config=None, project="JAXUED_TEST"):
             mutation_last_level_batch=init_levels,
         )
 
-    def train_step(carry: Tuple[chex.PRNGKey, TrainState], _):
+    def train_step(carry: Tuple[chex.PRNGKey, TrainState], t):
         
         rng, train_state, xhat, prev_grad, y_opt_state = carry
 
-        new_score = xhat # jax.nn.softmax(xhat) # projection_simplex_truncated(xhat + prev_grad, config["meta_trunc"]) # if config["META_OPTIMISTIC"] else xhat
+        new_score = xhat
+        levels = train_state.sampler["levels"]
+
+        rng, _rng = jax.random.split(rng)
+        scores, _ = learnability_fn(_rng, levels, config['level_buffer_capacity'], train_state)
+
+        # jax.debug.print("top 10 scores: {}", jax.lax.top_k(scores, 10))
+
+        rng, _rng = jax.random.split(rng)
+        new_sampler = {**train_state.sampler, "scores": scores} if config["static_buffer"] else replace_fn(_rng, train_state, scores)
+
+        meta_reg = config["meta_entr_coeff"] * (1 / jax.lax.cbrt(t + 1))
+
+        grad_fn = lambda y: y.T @ new_sampler["scores"] - meta_reg * jnp.log(y + 1e-6).T @ y
+        grad, y_opt_state = y_ti_ada.update(jax.grad(grad_fn)(xhat), y_opt_state)
+        xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
+
         sampler = {**train_state.sampler, "scores": new_score}
         # Collect trajectories on replay levels
         rng, rng_levels, rng_reset = jax.random.split(rng, 3)
@@ -743,22 +761,6 @@ def main(config=None, project="JAXUED_TEST"):
             ) = sample_trajectories_and_learn(env, env_params, config,
                                 rng, train_state, init_obs, init_env_state, update_grad=True)
         jax.debug.print("{}",  (info["returned_episode_returns"] * dones).sum() / dones.sum())
-        
-        # Update the level sampler
-        levels = sampler["levels"]
-        rng, _rng = jax.random.split(rng)
-        scores, _ = learnability_fn(_rng, levels, config['level_buffer_capacity'], train_state)
-
-        # jax.debug.print("{}, {}", scores, scores.min())
-
-        rng, _rng = jax.random.split(rng)
-        new_sampler = {**train_state.sampler, "scores": scores} if config["static_buffer"] else replace_fn(_rng, train_state, scores)
-        sampler = {**new_sampler, "scores": new_score}
-
-        grad_fn = jax.grad(lambda y: y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.log(y + 1e-6).T @ y)
-
-        grad, y_opt_state = y_ti_ada.update(grad_fn(xhat), y_opt_state)
-        xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
 
         metrics = {
             "losses": jax.tree_util.tree_map(lambda x: x.mean(), losses),
@@ -769,7 +771,7 @@ def main(config=None, project="JAXUED_TEST"):
             "levels_played": init_env_state.env_state,
             "mean_returns": (info["returned_episode_returns"] * dones).sum() / dones.sum(),
             "grad_norms": grads.mean(),
-            "adv_loss": (lambda y: y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.log(y + 1e-6).T @ y)(xhat),
+            "adv_loss": grad_fn(xhat),
             "adv_entropy": -jnp.log(new_score + 1e-6).T @ new_score
         }
 
@@ -780,7 +782,7 @@ def main(config=None, project="JAXUED_TEST"):
             sampler = sampler,
             update_state=UpdateState.REPLAY,
             num_replay_updates=train_state.num_replay_updates + 1,
-            replay_last_level_batch=levels,
+            # replay_last_level_batch=levels,
         )
         
         return (rng, train_state, xhat, prev_grad, y_opt_state), metrics
@@ -809,13 +811,13 @@ def main(config=None, project="JAXUED_TEST"):
         return states, cum_rewards, episode_lengths # (num_steps, num_eval_levels, ...), (num_eval_levels,), (num_eval_levels,)
     
     @jax.jit
-    def train_and_eval_step(runner_state, _):
+    def train_and_eval_step(runner_state, t):
         """
             This function runs the train_step for a certain number of iterations, and then evaluates the policy.
             It returns the updated train state, and a dictionary of metrics.
         """
         # Train
-        (rng, train_state, xhat, prev_grad, y_opt_state), metrics = jax.lax.scan(train_step, runner_state, None, config["eval_freq"])
+        (rng, train_state, xhat, prev_grad, y_opt_state), metrics = jax.lax.scan(train_step, runner_state, jnp.arange(config["eval_freq"], dtype=float) + t)
 
         # Eval
         rng, rng_eval = jax.random.split(rng)
@@ -886,28 +888,34 @@ def main(config=None, project="JAXUED_TEST"):
     train_state = create_train_state(rng_init)
 
     # Set up y optimizer state
+    # y_ti_ada = optax.chain(
+    #     optax.scale_by_adam(),
+    #     optax.scale(config["meta_lr"])
+    # )    
     y_ti_ada = scale_y_by_ti_ada(eta=config["meta_lr"])
     y_opt_state = y_ti_ada.init(jnp.zeros_like(train_state.sampler["scores"]))
         
     grad = jnp.zeros_like(train_state.sampler["scores"])
     rng, _rng = jax.random.split(rng)
-    # xhat = jax.random.uniform(rng, grad.shape, minval=-1)
     xhat = jnp.full_like(grad, 1 / len(grad))
 
     runner_state = (rng, train_state, xhat, grad, y_opt_state)
     
     # And run the train_eval_sep function for the specified number of updates
-    if config["checkpoint_save_interval"] > 0:
+    if config["checkpoint_save_interval"] > 0 or config["final_checkpoint"]:
         checkpoint_manager = setup_checkpointing(config, train_state, env, env_params)
     for eval_step in range(config["num_updates"] // config["eval_freq"]):
         start_time = time.time()
-        runner_state, metrics = train_and_eval_step(runner_state, None)
+        runner_state, metrics = train_and_eval_step(runner_state, eval_step * config["eval_freq"])
         curr_time = time.time()
         metrics['time_delta'] = curr_time - start_time
         log_eval(metrics, train_state_to_log_dict(runner_state[1], level_sampler))
         if config["checkpoint_save_interval"] > 0:
             checkpoint_manager.save(eval_step, args=ocp.args.StandardSave(runner_state[1]))
             checkpoint_manager.wait_until_finished()
+    if config["final_checkpoint"]:
+        seed = config["seed"]
+        jnp.save(f"craftax_params/ncc_regret_pvl_{seed}.npy", runner_state[1].params)
     return runner_state[1]
 
 if __name__=="__main__":
@@ -926,6 +934,7 @@ if __name__=="__main__":
     # === CHECKPOINTING ===
     parser.add_argument("--checkpoint_save_interval", type=int, default=0)
     parser.add_argument("--max_number_of_checkpoints", type=int, default=60)
+    parser.add_argument("--final_checkpoint", type=bool, default=True)
     # === EVAL ===
     parser.add_argument("--eval_freq", type=int, default=10)
     parser.add_argument("--eval_num_attempts", type=int, default=1)
@@ -948,7 +957,8 @@ if __name__=="__main__":
     group.add_argument("--critic_coeff", type=float, default=0.5)
     group.add_argument("--meta_lr", type=float, default=1e-2)
     group.add_argument("--meta_trunc", type=float, default=1e-5)
-    group.add_argument("--meta_entr_coeff", type=float, default = 0.01)
+    group.add_argument("--meta_entr_coeff", type=float, default = 0.005)
+    group.add_argument("--meta_mix", type=float, default = 0.5)
     # === PLR ===
     group.add_argument("--score_function", type=str, default="MaxMC", choices=["MaxMC", "pvl"])
     group.add_argument("--exploratory_grad_updates", action=argparse.BooleanOptionalAction, default=True)

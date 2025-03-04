@@ -959,7 +959,7 @@ def main(config=None, project="JAXUED_TEST"):
     runner_state = (rng, train_state, xhat, grad, y_opt_state)
     
     # And run the train_eval_sep function for the specified number of updates
-    if config["checkpoint_save_interval"] > 0:
+    if config["checkpoint_save_interval"] > 0 or config["final_checkpoint"]:
         checkpoint_manager = setup_checkpointing(config, train_state, env, env_params)
     for eval_step in range(config["num_updates"] // config["eval_freq"]):
         start_time = time.time()
@@ -970,10 +970,9 @@ def main(config=None, project="JAXUED_TEST"):
         if config["checkpoint_save_interval"] > 0:
             checkpoint_manager.save(eval_step, args=ocp.args.StandardSave(runner_state[1]))
             checkpoint_manager.wait_until_finished()
-
-    # save checkpoint at end of training
-    checkpoint_manager.save(eval_step, args=ocp.args.StandardSave(runner_state[1]))
-    checkpoint_manager.wait_until_finished()
+    if config["final_checkpoint"]:
+        seed = config["seed"]
+        jnp.save(f"craftax_params/sfl_params_{seed}.npy", runner_state[1].params)
     return runner_state[1]
 
 if __name__=="__main__":
@@ -992,6 +991,7 @@ if __name__=="__main__":
     # === CHECKPOINTING ===
     parser.add_argument("--checkpoint_save_interval", type=int, default=0)
     parser.add_argument("--max_number_of_checkpoints", type=int, default=60)
+    parser.add_argument("--final_checkpoint", type=bool, default=True)
     # === EVAL ===
     parser.add_argument("--eval_freq", type=int, default=10)
     parser.add_argument("--eval_num_attempts", type=int, default=1)

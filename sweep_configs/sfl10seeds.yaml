@@ -9,12 +9,6 @@ metric:
   name: eval/returns_mean
 name: craftax-sfl
 parameters:
-  static_buffer:
-    values:
-      - True
-  eval_num_attempts:
-    values:
-      - 100
   gae_lambda:
     values:
       - 0.95
@@ -30,18 +24,15 @@ parameters:
   num_minibatches:
     values:
       - 2
-  meta_entr_coeff:
-    values:
-      - 0.05
-  replay_prob:
-    values:
-      - 0.0
-  n_eval_levels:
-    values:
-      - 20
-  num_eval_steps:
-    values:
-      - 10000
+  # n_eval_levels:
+  #   values:
+  #     - 20
+  # num_eval_steps:
+  #   values:
+  #     - 10000
+  # eval_num_attempts:
+  #   values:
+  #     - 100
   seed:
     values:
       - 0
@@ -54,8 +45,5 @@ parameters:
       - 7
       - 8
       - 9
-  score_function:
-    values:
-      - "pvl"
 program: examples/craftax/craftax_sfl.py
 project: NCC-CRAFTAX

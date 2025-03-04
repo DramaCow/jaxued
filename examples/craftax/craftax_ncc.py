@@ -700,6 +700,34 @@ def main(config=None, project="JAXUED_TEST"):
         sampler, _ = level_sampler.insert_batch(update_sampler, new_levels, new_level_scores, {"max_return": max_returns})
         
         return sampler
+
+    def get_learnability_set(rng, train_state, _):
+
+        def batch(_, rng):
+
+            # Sample new levels
+            rng, _rng = jax.random.split(rng)
+            new_levels = jax.vmap(sample_random_level)(jax.random.split(_rng, config["level_buffer_capacity"]))
+
+            rng, _rng = jax.random.split(rng)
+            new_level_scores, max_returns = learnability_fn(_rng, new_levels, config["level_buffer_capacity"], train_state)
+
+            return None, (new_level_scores, new_levels)
+
+        new_level_scores, new_levels = jax.tree_util.tree_map(
+            lambda x: x.reshape(-1, *x.shape[2:]), jax.lax.scan(batch, None, xs = jax.random.split(rng, config["num_set_batches"]))[1]
+        )
+
+        idxs = jnp.flipud(jnp.argsort(new_level_scores))[:config["level_buffer_capacity"]]
+
+        new_levels = jax.tree_util.tree_map(
+            lambda x: x[idxs], new_levels
+        )
+
+        sampler = train_state.sampler
+        sampler["levels"] = new_levels
+
+        return sampler, jnp.full(config["level_buffer_capacity"], 1 / config["level_buffer_capacity"])
     
     @jax.jit
     def create_train_state(rng) -> TrainState:
@@ -746,7 +774,26 @@ def main(config=None, project="JAXUED_TEST"):
         
         rng, train_state, xhat, prev_grad, y_opt_state = carry
 
-        new_score = xhat # projection_simplex_truncated(xhat + prev_grad, config["meta_trunc"]) # if config["META_OPTIMISTIC"] else xhat
+        new_score = xhat
+        levels = train_state.sampler["levels"]
+
+        rng, _rng = jax.random.split(rng)
+        scores, _ = learnability_fn(_rng, levels, config['level_buffer_capacity'], train_state)
+
+        # jax.debug.print("top 10 scores: {}", jax.lax.top_k(scores, 10))
+
+        rng, _rng = jax.random.split(rng)
+        # new_sampler = {**train_state.sampler, "scores": scores} if config["static_buffer"] else replace_fn(_rng, train_state, scores)
+        new_sampler, new_score = jax.lax.cond(
+            t % 50 == 0, get_learnability_set, lambda r, t, s: ({**train_state.sampler, "scores": scores}, new_score), _rng, train_state, scores
+        )
+        xhat = new_score
+        meta_reg = config["meta_entr_coeff"] * (1 / jax.lax.cbrt(t + 1))
+
+        grad_fn = lambda y: y.T @ new_sampler["scores"] - meta_reg * jnp.log(y + 1e-6).T @ y
+        grad, y_opt_state = y_ti_ada.update(jax.grad(grad_fn)(xhat), y_opt_state)
+        xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
+
         sampler = {**train_state.sampler, "scores": new_score}
         # Collect trajectories on replay levels
         rng, rng_levels, rng_reset = jax.random.split(rng, 3)
@@ -759,36 +806,6 @@ def main(config=None, project="JAXUED_TEST"):
             ) = sample_trajectories_and_learn(env, env_params, config,
                                 rng, train_state, init_obs, init_env_state, update_grad=True)
         jax.debug.print("{}",  (info["returned_episode_returns"] * dones).sum() / dones.sum())
-        
-        # Update the level sampler
-        levels = sampler["levels"]
-        rng, _rng = jax.random.split(rng)
-        scores, _ = learnability_fn(_rng, levels, config['level_buffer_capacity'], train_state)
-
-        # jax.debug.print("top 10 scores: {}", jax.lax.top_k(scores, 10))
-
-        rng, _rng = jax.random.split(rng)
-        new_sampler = {**train_state.sampler, "scores": scores} if config["static_buffer"] else replace_fn(_rng, train_state, scores)
-        sampler = {**new_sampler, "scores": new_score}
-
-        meta_reg = config["meta_entr_coeff"] * (1 / jax.lax.cbrt(t + 1))
-
-        grad_fn = lambda y: y.T @ new_sampler["scores"] - meta_reg * jnp.log(y + 1e-6).T @ y
-
-        # def grad_fn(x):
-        #     y = jax.nn.softmax(x) * (1 - config["meta_mix"]) + config["meta_mix"] / len(x)
-        #     return y.T @ new_sampler["scores"] - config["meta_entr_coeff"] * jnp.square(optax.safe_norm(x, 0, 2))
-
-        # jax.debug.print("grad:         {}", jax.grad(grad_fn)(xhat))
-        # jax.debug.print("grad w/o reg: {}", jax.grad(lambda x: jax.nn.softmax(x).T @ new_sampler["scores"])(xhat))
-        # jax.debug.print("grad diff:    {}", jax.grad(lambda x: jax.nn.softmax(x).T @ new_sampler["scores"])(xhat) - jax.grad(grad_fn)(xhat))
-        # jax.debug.print("dist:         {}", jax.nn.softmax(xhat))
-        # jax.debug.print("xhat:         {}", xhat)
-        # jax.debug.print("entropy:      {}", -jax.nn.softmax(xhat).T @ jnp.log(jax.nn.softmax(xhat) + 1e-6))
-        # jax.debug.print("loss w/o reg: {}", jax.nn.softmax(xhat).T @ new_sampler["scores"] )
-        # jax.debug.print("norm:         {}", jnp.square(optax.safe_norm(xhat, 0, 2)))
-        grad, y_opt_state = y_ti_ada.update(jax.grad(grad_fn)(xhat), y_opt_state)
-        xhat = projection_simplex_truncated(xhat + grad, config["meta_trunc"])
 
         metrics = {
             "losses": jax.tree_util.tree_map(lambda x: x.mean(), losses),
@@ -810,7 +827,7 @@ def main(config=None, project="JAXUED_TEST"):
             sampler = sampler,
             update_state=UpdateState.REPLAY,
             num_replay_updates=train_state.num_replay_updates + 1,
-            replay_last_level_batch=levels,
+            # replay_last_level_batch=levels,
         )
         
         return (rng, train_state, xhat, prev_grad, y_opt_state), metrics
@@ -930,7 +947,7 @@ def main(config=None, project="JAXUED_TEST"):
     runner_state = (rng, train_state, xhat, grad, y_opt_state)
     
     # And run the train_eval_sep function for the specified number of updates
-    if config["checkpoint_save_interval"] > 0:
+    if config["checkpoint_save_interval"] > 0 or config["final_checkpoint"]:
         checkpoint_manager = setup_checkpointing(config, train_state, env, env_params)
     for eval_step in range(config["num_updates"] // config["eval_freq"]):
         start_time = time.time()
@@ -941,6 +958,9 @@ def main(config=None, project="JAXUED_TEST"):
         if config["checkpoint_save_interval"] > 0:
             checkpoint_manager.save(eval_step, args=ocp.args.StandardSave(runner_state[1]))
             checkpoint_manager.wait_until_finished()
+    if config["final_checkpoint"]:
+        seed = config["seed"]
+        jnp.save(f"craftax_params/ncc_params_{seed}.npy", runner_state[1].params)
     return runner_state[1]
 
 if __name__=="__main__":
@@ -958,6 +978,7 @@ if __name__=="__main__":
     parser.add_argument("--checkpoint_to_eval", type=int, default=-1)
     # === CHECKPOINTING ===
     parser.add_argument("--checkpoint_save_interval", type=int, default=0)
+    parser.add_argument("--final_checkpoint", type=bool, default=True)
     parser.add_argument("--max_number_of_checkpoints", type=int, default=60)
     # === EVAL ===
     parser.add_argument("--eval_freq", type=int, default=10)
@@ -995,6 +1016,7 @@ if __name__=="__main__":
     group.add_argument("--prioritization", type=str, default="rank", choices=["rank", "topk"])
     group.add_argument("--buffer_duplicate_check", action=argparse.BooleanOptionalAction, default=True)
     group.add_argument("--static_buffer", type=bool, default=False)
+    group.add_argument("--num_set_batches", type=int, default=5)
     # === ACCEL ===
     parser.add_argument("--use_accel",                          action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--num_edits",                          type=int, default=30)
