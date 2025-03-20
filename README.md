@@ -34,15 +34,14 @@ JaxUED is primarily intended for researchers looking to get *in the weeds* of UE
 ## Get Started
 See the [docs](https://dramacow.github.io/jaxued/) for more examples and [explanations of arguments](https://dramacow.github.io/jaxued/maze_dr/), or simply read the documented code in `examples/`
 ### Installation
-First, clone the repository
 
+To install the core package:
+```bash
+pip install jaxued
 ```
-git clone https://github.com/DramaCow/jaxued
-cd jaxued
-```
-And install:
-```
-pip install -e .
+To install optional dependencies required for the example scripts (found in the examples/ directory):
+```bash
+pip install "jaxued[examples]"
 ```
 
 Follow instructions [here](https://jax.readthedocs.io/en/latest/installation.html) for jax GPU installation, and run something like the following 
