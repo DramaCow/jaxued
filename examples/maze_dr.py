@@ -657,5 +657,5 @@ if __name__=="__main__":
     if config['mode'] == 'eval':
         os.environ['WANDB_MODE'] = 'disabled'
     
-    wandb.login()
+    # wandb.login()
     main(config, project=config["project"])

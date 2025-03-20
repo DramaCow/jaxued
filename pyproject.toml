@@ -5,14 +5,20 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jaxued"
 version = "0.0.1"
+license = { text = "Apache-2.0" }
 authors = [
   { name="Samuel Coward", email="scoward@robots.ox.ac.uk" },
 ]
 description = "A simple and useable UED library in Jax"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering",
@@ -27,6 +33,10 @@ dependencies = [
     "flax",
     "chex",
     "gymnax",
+]
+
+[project.optional-dependencies]
+examples = [
     "distrax",
     "optax",
     "orbax-checkpoint==0.5.3",
@@ -40,7 +50,3 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/dramacow/jaxued"
 Issues = "https://github.com/dramacow/jaxued/issues"
-
-
-
-license-file = "LICENSE"
