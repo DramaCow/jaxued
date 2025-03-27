@@ -4,7 +4,7 @@ from typing import Any, Optional, Tuple, Union
 import chex
 import jax
 import jax.numpy as jnp
-from craftax.constants import Achievement
+from craftax.craftax.constants import Achievement
 from flax import struct
 
 from jaxued.environments import UnderspecifiedEnv

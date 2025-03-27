@@ -49,7 +49,7 @@ class MazeEditor(UnderspecifiedEnv):
     ) -> Tuple[Observation, EnvState, float, bool, dict]:
         # Do not edit level if in terminal state
         rng, rng_obs = jax.random.split(rng)
-        new_level = jax.tree_map(
+        new_level = jax.tree_util.tree_map(
             lambda x, y: jax.lax.select(state.terminal, x, y),
             state.level,
             self._edit_level(rng, state, action, params)

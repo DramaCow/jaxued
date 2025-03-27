@@ -98,7 +98,7 @@ def sample_trajectories_rnn(
         rng, train_state, hstate, obs, env_state, last_done = carry
         rng, rng_action, rng_step = jax.random.split(rng, 3)
 
-        x = jax.tree_map(lambda x: x[None, ...], (obs, last_done))
+        x = jax.tree_util.tree_map(lambda x: x[None, ...], (obs, last_done))
         hstate, pi, value = train_state.apply_fn(train_state.params, x, hstate)
         action = pi.sample(seed=rng_action)
         log_prob = pi.log_prob(action)
@@ -129,7 +129,7 @@ def sample_trajectories_rnn(
         length=max_episode_length,
     )
 
-    x = jax.tree_map(lambda x: x[None, ...], (last_obs, last_done))
+    x = jax.tree_util.tree_map(lambda x: x[None, ...], (last_obs, last_done))
     _, _, last_value = train_state.apply_fn(train_state.params, x, hstate)
 
     return (rng, train_state, hstate, last_obs, last_env_state, last_value.squeeze(0)), traj
@@ -165,7 +165,7 @@ def evaluate_rnn(
         rng, hstate, obs, state, done, mask, episode_length = carry
         rng, rng_action, rng_step = jax.random.split(rng, 3)
 
-        x = jax.tree_map(lambda x: x[None, ...], (obs, done))
+        x = jax.tree_util.tree_map(lambda x: x[None, ...], (obs, done))
         hstate, pi, _ = train_state.apply_fn(train_state.params, x, hstate)
         action = pi.sample(seed=rng_action).squeeze(0)
 
@@ -262,12 +262,12 @@ def update_actor_critic_rnn(
         rng, rng_perm = jax.random.split(rng)
         permutation = jax.random.permutation(rng_perm, num_envs)
         minibatches = (
-            jax.tree_map(
+            jax.tree_util.tree_map(
                 lambda x: jnp.take(x, permutation, axis=0)
                 .reshape(n_minibatch, -1, *x.shape[1:]),
                 init_hstate,
             ),
-            *jax.tree_map(
+            *jax.tree_util.tree_map(
                 lambda x: jnp.take(x, permutation, axis=1)
                 .reshape(x.shape[0], n_minibatch, -1, *x.shape[2:])
                 .swapaxes(0, 1),
@@ -469,7 +469,7 @@ def main(config=None, project="JAXUED_TEST"):
                 )
                 return config[f"{prefix}lr"] * frac
             obs, _ = env.reset_to_level(rng, sample_empty_level(), env_params)
-            obs = jax.tree_map(
+            obs = jax.tree_util.tree_map(
                 lambda x: jnp.repeat(jnp.repeat(x[None, ...], config["num_train_envs"], axis=0)[None, ...], 256, axis=0),
                 obs,
             )
@@ -541,7 +541,7 @@ def main(config=None, project="JAXUED_TEST"):
         
         # adversary rollout (aka level generation)
         rng, _rng = jax.random.split(rng)
-        empty_levels = jax.tree_map(lambda x: jnp.array([x]).repeat(config["num_train_envs"], axis=0), sample_empty_level())
+        empty_levels = jax.tree_util.tree_map(lambda x: jnp.array([x]).repeat(config["num_train_envs"], axis=0), sample_empty_level())
         adv_rollout, (_, _, last_env_state, last_value, _) = rollout(_rng, adv_env, adv_env_params, adv_train_state, AdversaryActorCritic.initialize_carry((config["num_train_envs"],)), empty_levels, config["adv_num_steps"], "adv_")
         levels = last_env_state.level
 
@@ -567,9 +567,9 @@ def main(config=None, project="JAXUED_TEST"):
         (rng, adv_train_state), adv_losses = update(rng, adv_train_state, AdversaryActorCritic.initialize_carry((config["num_train_envs"],)), adv_rollout, "adv_")
         
         metrics = {
-            "pro_losses": jax.tree_map(lambda x: x.mean(), pro_losses),
-            "ant_losses": jax.tree_map(lambda x: x.mean(), ant_losses),
-            "adv_losses": jax.tree_map(lambda x: x.mean(), adv_losses),
+            "pro_losses": jax.tree_util.tree_map(lambda x: x.mean(), pro_losses),
+            "ant_losses": jax.tree_util.tree_map(lambda x: x.mean(), ant_losses),
+            "adv_losses": jax.tree_util.tree_map(lambda x: x.mean(), adv_losses),
             "mean_num_blocks": levels.wall_map.sum() / config["num_train_envs"],
             "pro_mean_returns": pro_mean_returns,
             "ant_max_returns":  ant_max_returns,
@@ -618,7 +618,7 @@ def main(config=None, project="JAXUED_TEST"):
         eval_returns = cum_rewards.mean(axis=0) # (num_eval_levels,)
         
         # just grab the first run
-        states, episode_lengths = jax.tree_map(lambda x: x[0], (states, episode_lengths)) # (num_steps, num_eval_levels, ...), (num_eval_levels,)
+        states, episode_lengths = jax.tree_util.tree_map(lambda x: x[0], (states, episode_lengths)) # (num_steps, num_eval_levels, ...), (num_eval_levels,)
         images = jax.vmap(jax.vmap(env_renderer.render_state, (0, None)), (0, None))(states, env_params) # (num_steps, num_eval_levels, ...)
         frames = images.transpose(0, 1, 4, 2, 3) # WandB expects color channel before image dimensions when dealing with animations for some reason
         
@@ -627,7 +627,7 @@ def main(config=None, project="JAXUED_TEST"):
         metrics["eval_solve_rates"] = eval_solve_rates
         metrics["eval_ep_lengths"]  = episode_lengths
         metrics["eval_animation"] = (frames, episode_lengths)
-        metrics["levels"] = jax.vmap(env_renderer.render_level, (0, None))(jax.tree_map(lambda x: x[-1], metrics["levels"]), env_params)
+        metrics["levels"] = jax.vmap(env_renderer.render_level, (0, None))(jax.tree_util.tree_map(lambda x: x[-1], metrics["levels"]), env_params)
         
         return (rng, train_state), metrics
     

@@ -162,3 +162,6 @@ cython_debug/
 wandb
 checkpoints
 results
+craftax_results/
+craftax_results_1/
+craftax_params/

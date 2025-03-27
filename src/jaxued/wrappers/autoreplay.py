@@ -36,8 +36,8 @@ class AutoReplayWrapper(UnderspecifiedEnv):
         obs_st, env_state_st, reward, done, info = self._env.step(
             rng_step, state.env_state, action, params
         )
-        env_state = jax.tree_map(lambda x, y: jax.lax.select(done, x, y), env_state_re, env_state_st)
-        obs = jax.tree_map(lambda x, y: jax.lax.select(done, x, y), obs_re, obs_st)
+        env_state = jax.tree_util.tree_map(lambda x, y: jax.lax.select(done, x, y), env_state_re, env_state_st)
+        obs = jax.tree_util.tree_map(lambda x, y: jax.lax.select(done, x, y), obs_re, obs_st)
         return obs, state.replace(env_state=env_state), reward, done, info
 
     def reset_env_to_level(
