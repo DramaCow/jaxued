@@ -205,7 +205,7 @@ def make_mutator_craftax_mutate_angles(generate_world, static_env_params: Static
     """
     def mutate_level(rng, level: EnvState, n=1):
         rng, *rngs = jax.random.split(rng, 5)
-        new_angles = jax.tree_map(lambda x, rr: jnp.clip(x + jax.random.uniform(rr, x.shape, minval=-0.2, maxval=0.2), 0, 1), level.fractal_noise_angles, tuple(rngs))
+        new_angles = jax.tree_util.tree_map(lambda x, rr: jnp.clip(x + jax.random.uniform(rr, x.shape, minval=-0.2, maxval=0.2), 0, 1), level.fractal_noise_angles, tuple(rngs))
         return generate_world(rng, params_to_use.replace(fractal_noise_angles=new_angles), static_env_params).replace(fractal_noise_angles=new_angles)
     
     return mutate_level

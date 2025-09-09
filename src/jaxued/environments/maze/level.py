@@ -109,7 +109,7 @@ class Level:
     def stack(cls, levels):
         level_dims = np.array([[level.wall_map.shape[1], level.wall_map.shape[0]] for level in levels])
         max_width, max_height = level_dims.max(axis=0)
-        return jax.tree_map(
+        return jax.tree_util.tree_map(
             lambda *xs: jnp.stack(xs),
             *(level.pad_to_shape(max_width, max_height) for level in levels)
         )

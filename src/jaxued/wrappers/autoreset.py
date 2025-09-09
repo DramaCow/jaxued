@@ -46,8 +46,8 @@ class AutoResetWrapper(UnderspecifiedEnv):
             rng, state.env_state, action, params
         )
         
-        env_state = jax.tree_map(lambda x, y: jax.lax.select(done, x, y), env_state_re, env_state_st)
-        obs = jax.tree_map(lambda x, y: jax.lax.select(done, x, y), obs_re, obs_st)
+        env_state = jax.tree_util.tree_map(lambda x, y: jax.lax.select(done, x, y), env_state_re, env_state_st)
+        obs = jax.tree_util.tree_map(lambda x, y: jax.lax.select(done, x, y), obs_re, obs_st)
         level_rng = jax.lax.select(done, rng_sample, state.rng)
         
         info["rng"] = level_rng
@@ -112,15 +112,15 @@ class AutoResetFiniteWrapper(UnderspecifiedEnv):
         rng_sample, rng_reset, rng_step = jax.random.split(rng, 3)
         
         new_level_idx = jax.random.choice(rng_sample, self._num_levels, p=self._p)
-        new_level = jax.tree_map(lambda x: x[level_idx], self._levels)
+        new_level = jax.tree_util.tree_map(lambda x: x[level_idx], self._levels)
         
         obs_re, env_state_re = self._env.reset_to_level(rng_reset, new_level, params)
         obs_st, env_state_st, reward, done, info = self._env.step(
             rng, state.env_state, action, params
         )
         
-        env_state = jax.tree_map(lambda x, y: jax.lax.select(done, x, y), env_state_re, env_state_st)
-        obs = jax.tree_map(lambda x, y: jax.lax.select(done, x, y), obs_re, obs_st)
+        env_state = jax.tree_util.tree_map(lambda x, y: jax.lax.select(done, x, y), env_state_re, env_state_st)
+        obs = jax.tree_util.tree_map(lambda x, y: jax.lax.select(done, x, y), obs_re, obs_st)
         level_idx = jax.lax.select(done, new_level_idx, state.level_idx)
         
         info["level_idx"] = level_idx
@@ -136,7 +136,7 @@ class AutoResetFiniteWrapper(UnderspecifiedEnv):
         obs, env_state = self._env.reset_to_level(rng, level, params)
         
         if self._check_reset_to_level:
-            eq_tree = jax.tree_map(lambda X, y: (X == y).reshape(self._num_levels, -1).all(axis=-1), self._levels, level)
+            eq_tree = jax.tree_util.tree_map(lambda X, y: (X == y).reshape(self._num_levels, -1).all(axis=-1), self._levels, level)
             eq_tree_flat, _ = jax.tree_util.tree_flatten(eq_tree)
             eq_mask = jnp.array(eq_tree_flat).all(axis=0) #& (self._p > 0) # ignores levels with no support
             level_idx = jax.lax.select(eq_mask.any(), eq_mask.argmax(), -1)
