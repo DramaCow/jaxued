@@ -25,6 +25,7 @@ class TrainState(BaseTrainState):
     last_hstate: chex.ArrayTree
     last_obs: chex.ArrayTree
     last_env_state: chex.ArrayTree
+    last_done: chex.Array
 
 # region PPO helper functions
 def compute_gae(
@@ -121,7 +122,7 @@ def sample_trajectories_rnn(
             init_hstate,
             init_obs,
             init_env_state,
-            jnp.zeros(num_envs, dtype=bool),
+            train_state.last_done,
         ),
         None,
         length=max_episode_length,
@@ -227,7 +228,7 @@ def update_actor_critic_rnn(
         Tuple[Tuple[chex.PRNGKey, TrainState], chex.ArrayTree]: It returns a new rng, the updated train_state, and the losses. The losses have structure (loss, (l_vf, l_clip, entropy))
     """
     obs, actions, dones, log_probs, values, targets, advantages = batch
-    last_dones = jnp.roll(dones, 1, axis=0).at[0].set(False)
+    last_dones = jnp.roll(dones, 1, axis=0).at[0].set(train_state.last_done)
     batch = obs, actions, last_dones, log_probs, values, targets, advantages
     
     def update_epoch(carry, _):
@@ -446,6 +447,7 @@ def main(config=None, project="JAXUED_TEST"):
             last_hstate=ActorCritic.initialize_carry((config["num_train_envs"],)),
             last_obs=init_obs,
             last_env_state=init_env_state,
+            last_done=jnp.zeros(config["num_train_envs"], dtype=bool),
         )
 
     def train_step(carry: Tuple[chex.PRNGKey, TrainState], _):
@@ -494,7 +496,8 @@ def main(config=None, project="JAXUED_TEST"):
             update_count=train_state.update_count + 1,
             last_hstate=hstate,
             last_env_state=last_env_state,
-            last_obs=last_obs
+            last_obs=last_obs,
+            last_done=dones[-1],
         )
         return (rng, train_state), metrics
     
